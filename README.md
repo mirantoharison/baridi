@@ -10,14 +10,16 @@ qui peut tourner comme service Windows.
 - `app/` : interface React + coque Tauri (`src-tauri/`)
 - `controller/` : contrôleur Go (API locale `127.0.0.1:8787`, service `FanControllerCore`)
 
-### Binaires tiers à fournir
+### Binaires tiers inclus
 
-Non versionnés (licences propriétaires) — à copier à la main avant de compiler :
+Pour que le dépôt fonctionne dès le clonage, deux binaires tiers sont versionnés :
 
-| Fichier | Destination |
-| --- | --- |
-| `AsusWinIO64.dll` (ASUS) | `controller/` et `app/src-tauri/binaries/` |
-| `PsExec.exe` (Sysinternals) | `app/src-tauri/binaries/` |
+| Fichier | Emplacement | Origine |
+| --- | --- | --- |
+| `AsusWinIO64.dll` | `controller/` et `app/src-tauri/binaries/` | ASUS |
+| `PsExec.exe` | `app/src-tauri/binaries/` | Sysinternals (Microsoft) |
+
+Ils restent soumis à leurs licences d'origine.
 
 ### Développer
 

@@ -20,6 +20,3 @@ controller/settings.json
 .vscode/
 .DS_Store
 
-# Binaires tiers non redistribuables (voir README.md)
-AsusWinIO64.dll
-PsExec.exe
