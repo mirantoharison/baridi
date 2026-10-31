@@ -1,0 +1,25 @@
+# Dépendances et sorties de build
+node_modules/
+dist/
+target/
+src-tauri/gen/
+
+# Contrôleur compilé : régénéré par `bun run core` (copié dans src-tauri/binaries/)
+app/src-tauri/binaries/fancontroller-core-*.exe
+controller/*.exe
+
+# Données créées à l'exécution à côté du contrôleur
+controller/profiles.json
+controller/settings.json
+*.db
+*.tmp
+
+# Journaux et éditeurs
+*.log
+.idea/
+.vscode/
+.DS_Store
+
+# Binaires tiers non redistribuables (voir README.md)
+AsusWinIO64.dll
+PsExec.exe
