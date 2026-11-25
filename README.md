@@ -7,6 +7,8 @@ A fan controller i vibe coded when default one failed on my system
 Application Tauri (React + shadcn/ui) pour piloter les ventilateurs d'un portable ASUS, avec un contrôleur Go
 qui peut tourner comme service Windows.
 
+![Page Info de Baridi - Fancontroller : température du processeur, deux ventilateurs, processeur et carte graphique](docs/screenshot.png)
+
 - `app/` : interface React + coque Tauri (`src-tauri/`)
 - `controller/` : contrôleur Go (API locale `127.0.0.1:8787`, service `FanControllerCore`)
 
