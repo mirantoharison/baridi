@@ -1,5 +1,6 @@
 import { useCallback, useState } from "react"
 import { Moon, Sun } from "lucide-react"
+import { useTranslation } from "react-i18next"
 import { Button } from "@/components/ui/button"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 
@@ -36,7 +37,8 @@ function useTheme() {
 /** Petit bouton icône pour basculer entre thème clair et thème sombre. */
 export function ThemeToggle() {
   const { theme, toggle } = useTheme()
-  const label = theme === "dark" ? "Passer au thème clair" : "Passer au thème sombre"
+  const { t } = useTranslation()
+  const label = theme === "dark" ? t("common.theme.toLight") : t("common.theme.toDark")
 
   return (
     <TooltipProvider>

@@ -15,6 +15,7 @@ import { SettingsTab } from "@/components/settings-tab"
 import { UpdatesTab } from "@/components/updates-tab"
 import { ShortcutsCard } from "@/components/shortcuts-card"
 import type { useFan } from "@/hooks/use-fan"
+import i18n from "@/i18n"
 
 /** Même gabarit que les autres pages (colonne qui remplit la hauteur, espacement entre cartes). */
 function PageStack({ children }: { children: ReactNode }) {
@@ -39,7 +40,8 @@ export interface BadgeContext {
 
 export interface NavPage {
   id: string
-  label: string
+  /** Clé de traduction du libellé (résolue à l'affichage, pour suivre le changement de langue). */
+  labelKey: string
   icon: ComponentType<{ className?: string }>
   /**
    * La coque enveloppe la page dans une zone défilante. À passer à false pour une page qui gère
@@ -52,8 +54,8 @@ export interface NavPage {
 }
 
 export interface NavGroup {
-  /** Titre affiché au-dessus du groupe (masqué quand la barre est réduite). */
-  label: string
+  /** Clé de traduction du titre affiché au-dessus du groupe (masqué quand la barre est réduite). */
+  labelKey: string
   pages: NavPage[]
 }
 
@@ -63,18 +65,18 @@ export interface NavGroup {
  */
 export const NAV_GROUPS: NavGroup[] = [
   {
-    label: "Surveillance",
+    labelKey: "common.nav.surveillance",
     pages: [
-      { id: "info", label: "Info", icon: Info, render: (fan) => <InfoTab fan={fan} /> },
-      { id: "historique", label: "Historique", icon: History, render: (fan) => <PageStack><HistoryTab batteryDetails={fan.status?.battery_details} /></PageStack> },
+      { id: "info", labelKey: "common.nav.info", icon: Info, render: (fan) => <InfoTab fan={fan} /> },
+      { id: "historique", labelKey: "common.nav.history", icon: History, render: (fan) => <PageStack><HistoryTab batteryDetails={fan.status?.battery_details} /></PageStack> },
     ],
   },
   {
-    label: "Contrôle",
+    labelKey: "common.nav.control",
     pages: [
       {
         id: "pilotage",
-        label: "Pilotage",
+        labelKey: "common.nav.pilotage",
         icon: Gauge,
         render: (fan) => (
           <PilotageTab
@@ -91,7 +93,7 @@ export const NAV_GROUPS: NavGroup[] = [
       },
       {
         id: "profils",
-        label: "Profils",
+        labelKey: "common.nav.profiles",
         icon: ListChecks,
         render: (fan) => (
           <ProfilesTab
@@ -105,27 +107,27 @@ export const NAV_GROUPS: NavGroup[] = [
       },
       {
         id: "automatisation",
-        label: "Automatisation",
+        labelKey: "common.nav.automation",
         icon: Zap,
         render: (fan) => <PageStack><AutomationTab profiles={fan.profiles} /></PageStack>,
       },
     ],
   },
   {
-    label: "Configuration",
+    labelKey: "common.nav.configuration",
     pages: [
       {
         id: "alertes",
-        label: "Alertes",
+        labelKey: "common.nav.alerts",
         icon: Bell,
         badge: ({ notificationsDenied }) =>
-          notificationsDenied ? { level: "warn", reason: "Windows bloque les notifications de l'application : aucune alerte ne s'affichera" } : null,
+          notificationsDenied ? { level: "warn", reason: i18n.t("common.badges.notificationsDenied") } : null,
         render: () => <PageStack><AlertsCard /></PageStack>,
       },
-      { id: "raccourcis", label: "Raccourcis", icon: Keyboard, render: () => <PageStack><ShortcutsCard /></PageStack> },
+      { id: "raccourcis", labelKey: "common.nav.shortcuts", icon: Keyboard, render: () => <PageStack><ShortcutsCard /></PageStack> },
       {
         id: "service",
-        label: "Service",
+        labelKey: "common.nav.service",
         icon: Server,
         render: () => (
           <PageStack>
@@ -137,11 +139,11 @@ export const NAV_GROUPS: NavGroup[] = [
     ],
   },
   {
-    label: "Système",
+    labelKey: "common.nav.system",
     pages: [
       {
         id: "reglages",
-        label: "Réglages",
+        labelKey: "common.nav.settings",
         icon: Settings2,
         render: (fan) => (
           <SettingsTab
@@ -155,25 +157,25 @@ export const NAV_GROUPS: NavGroup[] = [
       },
       {
         id: "diagnostic",
-        label: "Diagnostic",
+        labelKey: "common.nav.diagnostic",
         icon: Stethoscope,
         // Contrôle passif, sans toucher au ventilateur : pas de test actif ici (voir DiagnosticTab).
         badge: ({ fan }) => {
-          if (!fan.online) return { level: "fail", reason: "Le contrôleur ne répond pas" }
-          if (fan.status && fan.status.temp_c <= 0) return { level: "fail", reason: "La température du processeur est illisible" }
+          if (!fan.online) return { level: "fail", reason: i18n.t("common.badges.controllerDown") }
+          if (fan.status && fan.status.temp_c <= 0) return { level: "fail", reason: i18n.t("common.badges.tempUnreadable") }
           return null
         },
         render: (fan) => <DiagnosticTab fan={fan} />,
       },
-      { id: "mises-a-jour", label: "Mises à jour", icon: Download, render: () => <UpdatesTab /> },
-      { id: "logs", label: "Logs", icon: ScrollText, scroll: false, render: () => <LogsTab /> },
+      { id: "mises-a-jour", labelKey: "common.nav.updates", icon: Download, render: () => <UpdatesTab /> },
+      { id: "logs", labelKey: "common.nav.logs", icon: ScrollText, scroll: false, render: () => <LogsTab /> },
     ],
   },
 ]
 
 /** Épinglé en bas de la barre, séparé des groupes. */
 export const FOOTER_PAGES: NavPage[] = [
-  { id: "about", label: "À propos", icon: BookOpen, scroll: false, render: () => <AboutTab /> },
+  { id: "about", labelKey: "common.nav.about", icon: BookOpen, scroll: false, render: () => <AboutTab /> },
 ]
 
 export const ALL_PAGES: NavPage[] = [...NAV_GROUPS.flatMap((g) => g.pages), ...FOOTER_PAGES]

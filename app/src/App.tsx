@@ -1,7 +1,9 @@
 import { useState } from "react"
 import { AlertTriangle } from "lucide-react"
+import { useTranslation } from "react-i18next"
 import { AppSidebar } from "@/components/app-sidebar"
 import { StatusBar } from "@/components/status-bar"
+import { LanguageToggle } from "@/components/language-toggle"
 import { ThemeToggle } from "@/components/theme-toggle"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { useFan } from "@/hooks/use-fan"
@@ -25,6 +27,8 @@ function readPageId(): string {
 }
 
 export default function App() {
+  // Abonne App à la langue : les badges de navigation (calculés ici) sont retraduits au changement.
+  const { t } = useTranslation()
   const fan = useFan()
   const s = fan.status
   useThermalAlerts(s, fan.online)
@@ -70,9 +74,12 @@ export default function App() {
         <main className="flex min-w-0 flex-1 flex-col px-6 pt-4">
           <div className="flex items-center justify-between pb-3">
             <h1 className="flex items-center gap-2.5 text-2xl font-semibold tracking-tight">
-              <PageIcon className="size-5 text-primary" /> {page.label}
+              <PageIcon className="size-5 text-primary" /> {t(page.labelKey)}
             </h1>
-            <ThemeToggle />
+            <div className="flex items-center gap-1">
+              <LanguageToggle />
+              <ThemeToggle />
+            </div>
           </div>
 
           {/* IMPORTANT : contenu en absolute inset-0 dans un parent relative, comme avant avec les onglets :

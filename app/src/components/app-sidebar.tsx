@@ -1,5 +1,6 @@
 import { useState } from "react"
 import { Menu } from "lucide-react"
+import { useTranslation } from "react-i18next"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { FOOTER_PAGES, NAV_GROUPS, type NavBadge, type NavPage } from "@/lib/nav"
 import { cn } from "@/lib/utils"
@@ -29,9 +30,11 @@ function NavButton({ page, active, collapsed, badge, onSelect }: {
   badge?: NavBadge
   onSelect: (id: string) => void
 }) {
+  const { t } = useTranslation()
   const Icon = page.icon
+  const pageLabel = t(page.labelKey)
   // Le badge est annoncé aux lecteurs d'écran : la couleur seule ne dit rien à tout le monde.
-  const label = badge ? `${page.label} — ${badge.reason}` : page.label
+  const label = badge ? `${pageLabel} — ${badge.reason}` : pageLabel
   const button = (
     <button
       type="button"
@@ -50,7 +53,7 @@ function NavButton({ page, active, collapsed, badge, onSelect }: {
       )}
     >
       <Icon className="size-4 shrink-0" />
-      {!collapsed && <span className="truncate">{page.label}</span>}
+      {!collapsed && <span className="truncate">{pageLabel}</span>}
       {badge && (
         <span
           aria-hidden
@@ -79,6 +82,7 @@ function NavButton({ page, active, collapsed, badge, onSelect }: {
  * pour laisser la place au contenu dans une fenêtre qui fait 800 px au minimum.
  */
 export function AppSidebar({ activeId, onSelect, badges }: Props) {
+  const { t } = useTranslation()
   const [collapsed, setCollapsed] = useState(readCollapsed)
 
   const toggle = () => {
@@ -94,24 +98,24 @@ export function AppSidebar({ activeId, onSelect, badges }: Props) {
   return (
     <TooltipProvider>
       <nav
-        aria-label="Navigation principale"
+        aria-label={t("common.sidebar.aria")}
         className={cn("flex shrink-0 flex-col justify-between py-2 transition-[width]", collapsed ? "w-12 px-1" : "w-52 px-1.5")}
       >
         <button
           type="button"
           onClick={toggle}
-          aria-label={collapsed ? "Développer la barre latérale" : "Réduire la barre latérale"}
+          aria-label={collapsed ? t("common.sidebar.expand") : t("common.sidebar.collapse")}
           className="mb-2 flex h-9 w-full shrink-0 items-center gap-3 px-3 text-foreground/80 outline-none transition-colors hover:bg-accent/60 focus-visible:ring-2 focus-visible:ring-ring"
         >
           <Menu className="size-4 shrink-0" />
         </button>
         <div className="flex min-h-0 flex-1 flex-col gap-3 -mx-1 overflow-y-auto overflow-x-hidden px-1">
           {NAV_GROUPS.map((group, i) => (
-            <div key={group.label} className="flex flex-col gap-0.5">
+            <div key={group.labelKey} className="flex flex-col gap-0.5">
               {collapsed ? (
                 i > 0 && <div className="mx-2 mb-1 border-t" />
               ) : (
-                <div className="px-3 pb-1 text-[10px] font-medium text-muted-foreground">{group.label}</div>
+                <div className="px-3 pb-1 text-[10px] font-medium text-muted-foreground">{t(group.labelKey)}</div>
               )}
               {group.pages.map((page) => (
                 <NavButton key={page.id} page={page} active={page.id === activeId} collapsed={collapsed} badge={badges[page.id]} onSelect={onSelect} />

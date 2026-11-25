@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next"
 import { tempColor, tempLabel } from "@/lib/thermal"
 
 const R = 78
@@ -19,6 +20,7 @@ function arc(from: number, to: number) {
 
 /** Jauge circulaire de température CPU, colorée par seuil. */
 export function TempGauge({ temp }: { temp: number }) {
+  useTranslation() // abonne la jauge au changement de langue (le libellé est calculé par tempLabel)
   const ratio = Math.min(Math.max(temp / MAX_TEMP, 0), 1)
   const color = tempColor(temp)
   return (

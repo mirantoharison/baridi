@@ -1,5 +1,6 @@
 import { useState } from "react"
 import { ChevronDown, Info } from "lucide-react"
+import { useTranslation } from "react-i18next"
 import { cn } from "@/lib/utils"
 
 interface Props {
@@ -12,6 +13,7 @@ interface Props {
 
 /** Encart descriptif (style Alert shadcn) : une phrase + un détail repliable. */
 export function InfoNote({ summary, children, className }: Props) {
+  const { t } = useTranslation()
   const [open, setOpen] = useState(false)
   return (
     <div
@@ -31,7 +33,7 @@ export function InfoNote({ summary, children, className }: Props) {
             aria-expanded={open}
             className="flex shrink-0 items-center gap-1 text-foreground hover:underline"
           >
-            Détails <ChevronDown className={cn("size-3.5 transition-transform", open && "rotate-180")} />
+            {t("common.details")} <ChevronDown className={cn("size-3.5 transition-transform", open && "rotate-180")} />
           </button>
         )}
       </div>
