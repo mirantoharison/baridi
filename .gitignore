@@ -11,6 +11,8 @@ controller/*.exe
 # Données créées à l'exécution à côté du contrôleur
 controller/profiles.json
 controller/settings.json
+# IMPORTANT : clé secrète de l'API, créée par le contrôleur ; ne doit jamais être versionnée, où qu'il tourne
+api.key
 *.db
 *.tmp
 
@@ -20,3 +22,8 @@ controller/settings.json
 .vscode/
 .DS_Store
 
+
+# Données de session créées à côté du contrôleur : historique, règles d automatisation, icônes en cache
+history.jsonl
+automation.json
+controller/icons/
