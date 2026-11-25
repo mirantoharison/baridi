@@ -56,7 +56,7 @@ export function ServiceCard() {
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-3">
-        <div className="flex items-center justify-between gap-4 rounded-lg border p-3">
+        <div className="flex items-center justify-between gap-4 rounded-none border p-3">
           <Label htmlFor="service" className="flex flex-col items-start gap-1">
             <span className="font-medium">Exécuter le contrôleur comme service Windows</span>
             <span className="font-normal text-muted-foreground">
