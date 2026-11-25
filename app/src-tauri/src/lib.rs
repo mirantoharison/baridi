@@ -6,9 +6,9 @@ use std::sync::Mutex;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use tauri::image::Image;
-use tauri::menu::{Menu, MenuItem};
+use tauri::menu::{CheckMenuItem, Menu, MenuItem, PredefinedMenuItem, Submenu};
 use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
-use tauri::{AppHandle, Manager, RunEvent, WindowEvent};
+use tauri::{AppHandle, Emitter, Manager, RunEvent, WindowEvent};
 
 const CORE_ADDR: &str = "127.0.0.1:8787";
 const CREATE_NO_WINDOW: u32 = 0x0800_0000;
@@ -63,17 +63,99 @@ fn read_api_key() -> Result<String, String> {
 
 const TRAY_ID: &str = "main";
 
-/// Entrées du menu de l'icône, gardées pour pouvoir changer leur texte quand l'utilisateur change de langue.
-struct TrayMenu {
-    show: MenuItem<tauri::Wry>,
-    quit: MenuItem<tauri::Wry>,
+/// Marge entre le widget et le bord de l'écran lors de sa première apparition.
+const WIDGET_MARGIN: i32 = 16;
+
+/// Affiche ou masque le mini-widget. À la première apparition, il se place en haut à droite de l'écran ; ensuite
+/// l'utilisateur le déplace où il veut (Windows se souvient de sa position tant que l'application tourne).
+#[tauri::command]
+fn set_widget_visible(app: AppHandle, visible: bool, x: Option<i32>, y: Option<i32>) -> Result<(), String> {
+    let window = app.get_webview_window("widget").ok_or("fenêtre du widget introuvable")?;
+    if !visible {
+        return window.hide().map_err(|e| e.to_string());
+    }
+    if !window.is_visible().unwrap_or(false) {
+        // Position mémorisée par l'interface : on ne la reprend que si elle tombe encore sur un écran (un écran débranché
+        // depuis laisserait sinon le widget hors de portée).
+        let saved = match (x, y) {
+            (Some(x), Some(y)) if position_on_screen(&app, x, y) => Some((x, y)),
+            _ => None,
+        };
+        if let Some((x, y)) = saved {
+            let _ = window.set_position(tauri::PhysicalPosition::new(x, y));
+        } else if let (Ok(Some(monitor)), Ok(size)) = (window.current_monitor(), window.outer_size()) {
+            let screen = monitor.size();
+            let px = monitor.position().x + screen.width as i32 - size.width as i32 - WIDGET_MARGIN;
+            let py = monitor.position().y + WIDGET_MARGIN;
+            let _ = window.set_position(tauri::PhysicalPosition::new(px, py));
+        }
+    }
+    window.show().map_err(|e| e.to_string())
 }
 
-/// Traduit le menu de l'icône de la zone de notification (appelée par l'interface au démarrage et à chaque changement de langue).
+/// Vrai si le point (x, y) est dans l'un des écrans connectés.
+fn position_on_screen(app: &AppHandle, x: i32, y: i32) -> bool {
+    app.available_monitors()
+        .map(|monitors| {
+            monitors.iter().any(|m| {
+                let p = m.position();
+                let s = m.size();
+                x >= p.x && y >= p.y && x < p.x + s.width as i32 && y < p.y + s.height as i32
+            })
+        })
+        .unwrap_or(false)
+}
+
+/// Rend le widget « traversant » : il ignore la souris (les clics passent à la fenêtre qui est dessous). Il ne peut plus
+/// être déplacé ni fermé à la souris, et ne réagit plus au survol : l'interface le rebascule par réglage ou par raccourci.
 #[tauri::command]
-fn set_tray_menu(menu: tauri::State<TrayMenu>, show: String, quit: String) -> Result<(), String> {
-    menu.show.set_text(show).map_err(|e| e.to_string())?;
-    menu.quit.set_text(quit).map_err(|e| e.to_string())
+fn set_widget_click_through(app: AppHandle, enabled: bool) -> Result<(), String> {
+    let window = app.get_webview_window("widget").ok_or("fenêtre du widget introuvable")?;
+    window.set_ignore_cursor_events(enabled).map_err(|e| e.to_string())
+}
+
+/// Entrée du menu de l'icône, décrite par l'interface (qui connaît les profils, le mode et la langue).
+#[derive(serde::Deserialize)]
+struct TrayItem {
+    id: String,
+    label: String,
+    /// « item », « check » (case à cocher), « separator » ou « submenu ».
+    kind: String,
+    #[serde(default)]
+    checked: bool,
+    #[serde(default)]
+    children: Vec<TrayItem>,
+}
+
+type MenuEntry = Box<dyn tauri::menu::IsMenuItem<tauri::Wry>>;
+
+fn build_menu_items(app: &AppHandle, items: &[TrayItem]) -> tauri::Result<Vec<MenuEntry>> {
+    let mut out: Vec<MenuEntry> = Vec::new();
+    for it in items {
+        match it.kind.as_str() {
+            "separator" => out.push(Box::new(PredefinedMenuItem::separator(app)?)),
+            "check" => out.push(Box::new(CheckMenuItem::with_id(app, &it.id, &it.label, true, it.checked, None::<&str>)?)),
+            "submenu" => {
+                let kids = build_menu_items(app, &it.children)?;
+                let refs: Vec<&dyn tauri::menu::IsMenuItem<tauri::Wry>> = kids.iter().map(|k| k.as_ref()).collect();
+                out.push(Box::new(Submenu::with_id_and_items(app, &it.id, &it.label, true, &refs)?));
+            }
+            _ => out.push(Box::new(MenuItem::with_id(app, &it.id, &it.label, true, None::<&str>)?)),
+        }
+    }
+    Ok(out)
+}
+
+/// Remplace le menu de l'icône de la zone de notification. IMPORTANT : les clics sur « show » et « quit » sont traités ici
+/// (ils doivent marcher même si la fenêtre est masquée) ; tous les autres identifiants sont renvoyés à l'interface par
+/// l'événement « tray-action » (changer de profil, passer en Auto, fixer une vitesse…).
+#[tauri::command]
+fn set_tray_menu(app: AppHandle, items: Vec<TrayItem>) -> Result<(), String> {
+    let tray = app.tray_by_id(TRAY_ID).ok_or("icône de la zone de notification introuvable")?;
+    let entries = build_menu_items(&app, &items).map_err(|e| e.to_string())?;
+    let refs: Vec<&dyn tauri::menu::IsMenuItem<tauri::Wry>> = entries.iter().map(|e| e.as_ref()).collect();
+    let menu = Menu::with_items(&app, &refs).map_err(|e| e.to_string())?;
+    tray.set_menu(Some(menu)).map_err(|e| e.to_string())
 }
 
 /// Met à jour l'icône et l'infobulle de la zone de notification (appelée par l'interface quand la température change).
@@ -147,6 +229,52 @@ fn open_config_dir() -> Result<(), String> {
     let dir = core.parent().ok_or("dossier du contrôleur introuvable")?;
     // spawn et non status : explorer.exe renvoie un code de sortie non nul même quand l'ouverture réussit.
     Command::new("explorer").arg(dir).spawn().map(|_| ()).map_err(|e| format!("explorer introuvable : {e}"))
+}
+
+/// Dossier Téléchargements de l'utilisateur courant.
+fn downloads_dir() -> Result<std::path::PathBuf, String> {
+    let profile = std::env::var("USERPROFILE").map_err(|_| "dossier utilisateur introuvable".to_string())?;
+    Ok(std::path::PathBuf::from(profile).join("Downloads"))
+}
+
+/// Enregistre un fichier texte (export CSV, sauvegarde des réglages, rapport de support) dans le dossier Téléchargements
+/// et renvoie son chemin. IMPORTANT : l'interface ne choisit que le NOM du fichier, jamais le dossier : un nom contenant un
+/// séparateur ou « .. » est refusé, et un fichier existant n'est jamais écrasé (on ajoute « (1) », « (2) »…).
+#[tauri::command]
+fn save_text_file(name: String, content: String) -> Result<String, String> {
+    if name.is_empty() || name.contains(['/', '\\', ':']) || name.contains("..") {
+        return Err("nom de fichier invalide".into());
+    }
+    let dir = downloads_dir()?;
+    std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
+    let (stem, ext) = match name.rsplit_once('.') {
+        Some((s, e)) => (s.to_string(), format!(".{e}")),
+        None => (name.clone(), String::new()),
+    };
+    let mut path = dir.join(&name);
+    let mut n = 1;
+    while path.exists() {
+        path = dir.join(format!("{stem} ({n}){ext}"));
+        n += 1;
+        if n > 99 {
+            return Err("trop de fichiers du même nom".into());
+        }
+    }
+    std::fs::write(&path, content).map_err(|e| e.to_string())?;
+    Ok(path.to_string_lossy().into_owned())
+}
+
+/// Ouvre l'Explorateur sur un fichier enregistré par `save_text_file`. IMPORTANT : seuls les fichiers du dossier
+/// Téléchargements sont acceptés, pour que la webview ne puisse pas s'en servir pour révéler n'importe quel emplacement.
+#[tauri::command]
+fn reveal_file(path: String) -> Result<(), String> {
+    let p = std::path::PathBuf::from(&path);
+    let canonical = p.canonicalize().map_err(|e| e.to_string())?;
+    let dir = downloads_dir()?.canonicalize().map_err(|e| e.to_string())?;
+    if !canonical.starts_with(&dir) {
+        return Err("fichier hors du dossier Téléchargements".into());
+    }
+    Command::new("explorer").arg(format!("/select,{}", canonical.display())).spawn().map(|_| ()).map_err(|e| e.to_string())
 }
 
 /// Vrai si quelque chose répond déjà sur le port du contrôleur (service Windows ou sidecar existant).
@@ -373,7 +501,7 @@ pub fn run() {
         // de dupliquer en Rust la logique « profil suivant » qui vit déjà dans le hook useFan.
         .plugin(tauri_plugin_global_shortcut::Builder::new().build())
         .manage(Session(session))
-        .invoke_handler(tauri::generate_handler![session_id, service_status, service_set, autostart_status, autostart_set, open_config_dir, api_key, set_tray, set_tray_menu])
+        .invoke_handler(tauri::generate_handler![session_id, service_status, service_set, autostart_status, autostart_set, open_config_dir, api_key, set_tray, set_tray_menu, set_widget_visible, set_widget_click_through, save_text_file, reveal_file])
         // Croix de la fenêtre et Alt+F4 passent tous deux par CloseRequested : on masque au lieu de fermer.
         .on_window_event(|window, event| {
             if let WindowEvent::CloseRequested { api, .. } = event {
@@ -395,7 +523,6 @@ pub fn run() {
             let show = MenuItem::with_id(app, "show", "Afficher Baridi - Fancontroller", true, None::<&str>)?;
             let quit = MenuItem::with_id(app, "quit", "Quitter", true, None::<&str>)?;
             let menu = Menu::with_items(app, &[&show, &quit])?;
-            app.manage(TrayMenu { show: show.clone(), quit: quit.clone() });
             TrayIconBuilder::with_id(TRAY_ID)
                 .icon(icon.clone())
                 .tooltip("Baridi - Fancontroller")
@@ -404,7 +531,9 @@ pub fn run() {
                 .on_menu_event(|app, event| match event.id.as_ref() {
                     "show" => show_main(app),
                     "quit" => quit_app(app),
-                    _ => {}
+                    other => {
+                        let _ = app.emit("tray-action", other.to_string());
+                    }
                 })
                 .on_tray_icon_event(|tray, event| {
                     if let TrayIconEvent::Click {

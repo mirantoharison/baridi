@@ -965,6 +965,7 @@ dependencies = [
 name = "fancontroller"
 version = "2.0.0"
 dependencies = [
+ "serde",
  "tauri",
  "tauri-build",
  "tauri-plugin-global-shortcut",
