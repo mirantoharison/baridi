@@ -12,6 +12,10 @@ use tauri::{AppHandle, Manager, RunEvent, WindowEvent};
 
 const CORE_ADDR: &str = "127.0.0.1:8787";
 const CREATE_NO_WINDOW: u32 = 0x0800_0000;
+/// Nom de la tâche planifiée qui lance l'interface à l'ouverture de session.
+const TASK_NAME: &str = "BaridiFancontroller";
+/// Argument passé par la tâche planifiée : démarrer réduit dans la zone de notification.
+const MINIMIZED_ARG: &str = "--minimized";
 
 /// Sidecar Go qui pilote réellement les ventilateurs.
 struct Core(Mutex<Option<Child>>);
@@ -38,13 +42,55 @@ fn spawn_core() -> std::io::Result<Child> {
         .spawn()
 }
 
+/// Fichier de la clé d'API, à côté de l'exécutable du contrôleur. C'est LUI qui le crée au premier démarrage, avec des
+/// droits réservés à SYSTEM et aux administrateurs : une application lancée sans élévation ne peut pas le lire.
+const API_KEY_FILE: &str = "api.key";
+
+/// Lit la clé d'API partagée avec le contrôleur (64 caractères hexadécimaux).
+fn read_api_key() -> Result<String, String> {
+    let core = core_exe()?;
+    let dir = core.parent().ok_or("dossier du contrôleur introuvable")?;
+    let raw = std::fs::read_to_string(dir.join(API_KEY_FILE)).map_err(|e| {
+        format!("clé de l'API illisible ({e}) : le contrôleur la crée à son démarrage, et l'application doit s'exécuter en administrateur")
+    })?;
+    let key = raw.trim().to_string();
+    if key.len() == 64 && key.bytes().all(|b| b.is_ascii_hexdigit()) {
+        Ok(key)
+    } else {
+        Err("clé de l'API invalide".into())
+    }
+}
+
+const TRAY_ID: &str = "main";
+
+/// Met à jour l'icône et l'infobulle de la zone de notification (appelée par l'interface quand la température change).
+/// `rgba` : width × height × 4 octets, dessinés côté interface.
+#[tauri::command]
+fn set_tray(app: AppHandle, rgba: Vec<u8>, width: u32, height: u32, tooltip: String) -> Result<(), String> {
+    if rgba.len() != (width as usize) * (height as usize) * 4 {
+        return Err("taille d'image incohérente".into());
+    }
+    let tray = app.tray_by_id(TRAY_ID).ok_or("icône de la zone de notification introuvable")?;
+    tray.set_icon(Some(Image::new_owned(rgba, width, height))).map_err(|e| e.to_string())?;
+    tray.set_tooltip(Some(tooltip)).map_err(|e| e.to_string())
+}
+
+/// Clé d'API pour l'interface : elle l'envoie à chaque requête (en-tête Authorization, ou paramètre pour le flux SSE).
+#[tauri::command]
+fn api_key() -> Result<String, String> {
+    read_api_key()
+}
+
 /// Demande un arrêt propre (restauration du profil balanced) via POST /quit.
 /// TCP brut : évite d'embarquer un client HTTP pour une seule requête.
+///
+/// IMPORTANT : /quit exige la clé comme toutes les routes. Sans elle (fichier illisible), la requête part quand même
+/// et se fait refuser : le contrôleur sera alors arrêté par le repli de `RunEvent::Exit` (kill) plutôt que proprement.
 fn request_quit() {
     if let Ok(mut s) = TcpStream::connect_timeout(&CORE_ADDR.parse().unwrap(), Duration::from_millis(500)) {
-        let _ = s.write_all(
-            b"POST /quit HTTP/1.1\r\nHost: 127.0.0.1\r\nContent-Length: 0\r\nConnection: close\r\n\r\n",
-        );
+        let auth = read_api_key().map(|k| format!("Authorization: Bearer {k}\r\n")).unwrap_or_default();
+        let request = format!("POST /quit HTTP/1.1\r\nHost: 127.0.0.1\r\n{auth}Content-Length: 0\r\nConnection: close\r\n\r\n");
+        let _ = s.write_all(request.as_bytes());
         let _ = s.flush();
     }
 }
@@ -76,6 +122,18 @@ fn quit_app(app: &AppHandle) {
 fn core_exe() -> Result<std::path::PathBuf, String> {
     let exe = std::env::current_exe().map_err(|e| e.to_string())?;
     Ok(exe.parent().ok_or("exe sans dossier parent")?.join("fancontroller-core.exe"))
+}
+
+/// Ouvre dans l'Explorateur le dossier où le contrôleur garde ses fichiers (settings.json, profiles.json).
+///
+/// IMPORTANT : aucun chemin en argument. Le dossier est celui de l'exe du contrôleur, déduit côté Rust :
+/// la webview ne peut donc pas s'en servir pour faire ouvrir n'importe quel emplacement.
+#[tauri::command]
+fn open_config_dir() -> Result<(), String> {
+    let core = core_exe()?;
+    let dir = core.parent().ok_or("dossier du contrôleur introuvable")?;
+    // spawn et non status : explorer.exe renvoie un code de sortie non nul même quand l'ouverture réussit.
+    Command::new("explorer").arg(dir).spawn().map(|_| ()).map_err(|e| format!("explorer introuvable : {e}"))
 }
 
 /// Vrai si quelque chose répond déjà sur le port du contrôleur (service Windows ou sidecar existant).
@@ -166,6 +224,120 @@ async fn service_set(app: AppHandle, enabled: bool) -> Result<(), String> {
         .map_err(|e| e.to_string())?
 }
 
+// ─── Démarrage automatique de l'interface (tâche planifiée) ────────────────────
+
+fn xml_escape(s: &str) -> String {
+    s.replace('&', "&amp;").replace('<', "&lt;").replace('>', "&gt;").replace('"', "&quot;")
+}
+
+fn run_schtasks(args: &[&str]) -> Result<(), String> {
+    let out = Command::new("schtasks")
+        .args(args)
+        .creation_flags(CREATE_NO_WINDOW)
+        .output()
+        .map_err(|e| format!("schtasks introuvable : {e}"))?;
+    if out.status.success() {
+        return Ok(());
+    }
+    let text = format!(
+        "{} {}",
+        String::from_utf8_lossy(&out.stdout),
+        String::from_utf8_lossy(&out.stderr)
+    );
+    Err(format!("schtasks a échoué (droits administrateur requis ?) : {}", text.trim()))
+}
+
+/// Vrai si la tâche planifiée existe.
+#[tauri::command]
+fn autostart_status() -> bool {
+    Command::new("schtasks")
+        .args(["/Query", "/TN", TASK_NAME])
+        .creation_flags(CREATE_NO_WINDOW)
+        .output()
+        .map(|o| o.status.success())
+        .unwrap_or(false)
+}
+
+/// Crée ou supprime la tâche planifiée qui démarre l'interface avec Windows.
+///
+/// IMPORTANT : l'exécutable exige les droits administrateur (manifeste). Une clé de registre « Run »
+/// ne pourrait pas le lancer à l'ouverture de session (Windows n'affiche pas l'UAC à ce moment-là) ;
+/// une tâche planifiée avec les privilèges maximaux, si. Créée en ligne de commande, elle refuserait
+/// de démarrer sur batterie : on passe donc par un XML qui lève cette restriction, et qui ajoute un
+/// court délai après la connexion pour laisser le système (et le service) se stabiliser.
+#[tauri::command]
+fn autostart_set(enabled: bool) -> Result<(), String> {
+    if !enabled {
+        return run_schtasks(&["/Delete", "/TN", TASK_NAME, "/F"]);
+    }
+
+    let exe = std::env::current_exe().map_err(|e| e.to_string())?;
+    let dir = exe.parent().ok_or("exe sans dossier parent")?;
+    let user = format!(
+        "{}\\{}",
+        std::env::var("USERDOMAIN").unwrap_or_default(),
+        std::env::var("USERNAME").map_err(|_| "variable USERNAME absente".to_string())?
+    );
+
+    let xml = format!(
+        r#"<?xml version="1.0" encoding="UTF-16"?>
+<Task version="1.4" xmlns="http://schemas.microsoft.com/windows/2004/02/mit/task">
+  <RegistrationInfo>
+    <Description>Démarre Baridi - Fancontroller à l'ouverture de session, réduit dans la zone de notification.</Description>
+  </RegistrationInfo>
+  <Triggers>
+    <LogonTrigger>
+      <Enabled>true</Enabled>
+      <UserId>{user}</UserId>
+      <Delay>PT10S</Delay>
+    </LogonTrigger>
+  </Triggers>
+  <Principals>
+    <Principal id="Author">
+      <UserId>{user}</UserId>
+      <LogonType>InteractiveToken</LogonType>
+      <RunLevel>HighestAvailable</RunLevel>
+    </Principal>
+  </Principals>
+  <Settings>
+    <MultipleInstancesPolicy>IgnoreNew</MultipleInstancesPolicy>
+    <DisallowStartIfOnBatteries>false</DisallowStartIfOnBatteries>
+    <StopIfGoingOnBatteries>false</StopIfGoingOnBatteries>
+    <AllowHardTerminate>true</AllowHardTerminate>
+    <StartWhenAvailable>false</StartWhenAvailable>
+    <RunOnlyIfNetworkAvailable>false</RunOnlyIfNetworkAvailable>
+    <AllowStartOnDemand>true</AllowStartOnDemand>
+    <Enabled>true</Enabled>
+    <Hidden>false</Hidden>
+    <ExecutionTimeLimit>PT0S</ExecutionTimeLimit>
+    <Priority>7</Priority>
+  </Settings>
+  <Actions Context="Author">
+    <Exec>
+      <Command>{command}</Command>
+      <Arguments>{args}</Arguments>
+      <WorkingDirectory>{workdir}</WorkingDirectory>
+    </Exec>
+  </Actions>
+</Task>"#,
+        user = xml_escape(&user),
+        command = xml_escape(&exe.to_string_lossy()),
+        args = MINIMIZED_ARG,
+        workdir = xml_escape(&dir.to_string_lossy()),
+    );
+
+    // schtasks attend du UTF-16 LE avec BOM pour un XML déclaré en UTF-16.
+    let mut bytes = vec![0xFF, 0xFE];
+    for unit in xml.encode_utf16() {
+        bytes.extend_from_slice(&unit.to_le_bytes());
+    }
+    let path = std::env::temp_dir().join("baridi-fancontroller-task.xml");
+    std::fs::write(&path, bytes).map_err(|e| e.to_string())?;
+    let result = run_schtasks(&["/Create", "/TN", TASK_NAME, "/XML", &path.to_string_lossy(), "/F"]);
+    let _ = std::fs::remove_file(&path);
+    result
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let session = format!(
@@ -179,8 +351,16 @@ pub fn run() {
         // l'app est dans le systray, ou tâche de démarrage) se contente de réafficher la première :
         // deux contrôleurs se disputeraient le port 8787 et le ventilateur.
         .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| show_main(app)))
+        // Notifications natives Windows : alertes thermiques même quand la fenêtre est dans le systray.
+        .plugin(tauri_plugin_notification::init())
+        // Préférences de l'interface (alertes, raccourcis) dans %APPDATA%, hors du localStorage de la webview
+        // que l'utilisateur peut vider avec le cache.
+        .plugin(tauri_plugin_store::Builder::new().build())
+        // Les raccourcis sont enregistrés côté JS (la webview reste vivante, masquée) : ça évite
+        // de dupliquer en Rust la logique « profil suivant » qui vit déjà dans le hook useFan.
+        .plugin(tauri_plugin_global_shortcut::Builder::new().build())
         .manage(Session(session))
-        .invoke_handler(tauri::generate_handler![session_id, service_status, service_set])
+        .invoke_handler(tauri::generate_handler![session_id, service_status, service_set, autostart_status, autostart_set, open_config_dir, api_key, set_tray])
         // Croix de la fenêtre et Alt+F4 passent tous deux par CloseRequested : on masque au lieu de fermer.
         .on_window_event(|window, event| {
             if let WindowEvent::CloseRequested { api, .. } = event {
@@ -202,7 +382,7 @@ pub fn run() {
             let show = MenuItem::with_id(app, "show", "Afficher Baridi - Fancontroller", true, None::<&str>)?;
             let quit = MenuItem::with_id(app, "quit", "Quitter", true, None::<&str>)?;
             let menu = Menu::with_items(app, &[&show, &quit])?;
-            TrayIconBuilder::new()
+            TrayIconBuilder::with_id(TRAY_ID)
                 .icon(icon.clone())
                 .tooltip("Baridi - Fancontroller")
                 .menu(&menu)
@@ -228,7 +408,10 @@ pub fn run() {
                 // Zoom par défaut à 80 % : interface dense, plus d'information à l'écran.
                 window.set_icon(icon)?;
                 window.set_zoom(0.8)?;
-                window.show()?;
+                // La fenêtre est créée masquée (tauri.conf) : on l'affiche sauf démarrage automatique.
+                if !std::env::args().any(|a| a == MINIMIZED_ARG) {
+                    window.show()?;
+                }
             }
             Ok(())
         })
