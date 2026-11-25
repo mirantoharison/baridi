@@ -31,6 +31,11 @@ type Sample struct {
 	Battery  int     `json:"bat,omitempty"`
 	BatPower float64 `json:"bat_w,omitempty"`
 	Plugged  bool    `json:"ac,omitempty"`
+	// ThrCPU : limitation probable du processeur (déduite d'une fréquence très sous la base sous charge) ; ThrGPU : la
+	// carte est bridée par la chaleur, une protection matérielle ou sa limite de puissance (pas le simple plafond
+	// thermique de plateforme, déclaré en permanence par les portables).
+	ThrCPU bool `json:"thr_c,omitempty"`
+	ThrGPU bool `json:"thr_g,omitempty"`
 }
 
 const (

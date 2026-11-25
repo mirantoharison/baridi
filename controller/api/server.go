@@ -33,6 +33,8 @@ type Server struct {
 	onFan2Curve  func(cfg fan.Fan2CurveConfig)
 	// history : historique long (nil = absent).
 	history *history.Store
+	// health : relevés quotidiens de la santé de la batterie (nil = absent).
+	health *history.HealthStore
 	// key : clé partagée exigée sur toutes les routes sauf /health (voir auth.go).
 	key string
 	// monitor : mesures du processeur et de la carte graphique (nil = non affichées).
@@ -82,6 +84,9 @@ func (s *Server) OnFan2Curve(fn func(cfg fan.Fan2CurveConfig)) { s.onFan2Curve =
 
 // SetHistory branche l'historique long sur les routes /history.
 func (s *Server) SetHistory(h *history.Store) { s.history = h }
+
+// SetHealth branche le suivi quotidien de la batterie sur /battery/health.
+func (s *Server) SetHealth(h *history.HealthStore) { s.health = h }
 
 // OnProfile enregistre le callback de persistance du profil actif.
 func (s *Server) OnProfile(fn func(id string)) { s.onProfile = fn }
@@ -394,6 +399,24 @@ func (s *Server) batteryETA(d hw.BatteryDetails) *int {
 	return &minutes
 }
 
+// handleHistoryThermal renvoie la répartition des températures et la consigne moyenne par tranche.
+func (s *Server) handleHistoryThermal(w http.ResponseWriter, r *http.Request) {
+	if s.history == nil {
+		errJSON(w, 404, "history unavailable")
+		return
+	}
+	writeJSON(w, 200, s.history.ThermalProfile())
+}
+
+// handleBatteryHealth renvoie un relevé de santé de la batterie par jour.
+func (s *Server) handleBatteryHealth(w http.ResponseWriter, r *http.Request) {
+	if s.health == nil {
+		errJSON(w, 404, "battery health unavailable")
+		return
+	}
+	writeJSON(w, 200, map[string]any{"points": s.health.Points()})
+}
+
 // handleHistorySummary renvoie le résumé des dernières 24 heures.
 func (s *Server) handleHistorySummary(w http.ResponseWriter, r *http.Request) {
 	if s.history == nil {
@@ -437,6 +460,8 @@ func (s *Server) Start(addr string) error {
 	mux.HandleFunc("/history", s.handleHistory)
 	mux.HandleFunc("/history/analysis", s.handleHistoryAnalysis)
 	mux.HandleFunc("/history/summary", s.handleHistorySummary)
+	mux.HandleFunc("/history/thermal", s.handleHistoryThermal)
+	mux.HandleFunc("/battery/health", s.handleBatteryHealth)
 	mux.HandleFunc("/info", s.handleInfo)
 	mux.HandleFunc("/stats", s.handleStats)
 	mux.HandleFunc("/system", s.handleSystem)

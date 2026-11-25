@@ -180,7 +180,16 @@ func (c *Controller) transitionConfig() (step uintptr, tick time.Duration) {
 // Si une transition est déjà en cours, elle est annulée et remplacée.
 func (c *Controller) transitionTo(target uintptr) {
 	step, tick := c.transitionConfig()
+	c.transitionWith(target, step, tick)
+}
 
+// manualRampStep : pas PWM par tick pour une vitesse MANUELLE. Une consigne choisie à la main (curseur, raccourci
+// clavier) doit être suivie vite : avec le pas lissé du profil, redescendre de 75 % à 10 % prenait plusieurs minutes,
+// chaque pas coûtant un appel lent à la DLL. À ce pas, le parcours complet fait une dizaine de ticks.
+const manualRampStep uintptr = 24
+
+// transitionWith est transitionTo avec un pas et un tick imposés.
+func (c *Controller) transitionWith(target, step uintptr, tick time.Duration) {
 	c.mu.Lock()
 	c.targetPWM = target
 
@@ -283,7 +292,7 @@ func (c *Controller) SetManual(percent uintptr) uintptr {
 	c.Mode = "manual"
 	c.mu.Unlock()
 
-	c.transitionTo(pwm)
+	c.transitionWith(pwm, manualRampStep, time.Duration(defaultTransition.TickMs)*time.Millisecond)
 
 	return pwm
 }

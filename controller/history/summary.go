@@ -21,6 +21,11 @@ type Summary struct {
 	BatteryChargedWh float64 `json:"battery_charged_wh"`
 	// MinutesOnBattery : temps passé sur batterie.
 	MinutesOnBattery int `json:"minutes_on_battery"`
+	// Limitations sur la période : minutes cumulées et nombre d'épisodes (une suite de mesures consécutives en limitation).
+	ThrottleCPUMinutes  int `json:"throttle_cpu_minutes"`
+	ThrottleCPUEpisodes int `json:"throttle_cpu_episodes"`
+	ThrottleGPUMinutes  int `json:"throttle_gpu_minutes"`
+	ThrottleGPUEpisodes int `json:"throttle_gpu_episodes"`
 }
 
 // Summarize résume les dernières 24 heures. Chaque mesure représente une période d'Interval.
@@ -38,8 +43,10 @@ func (s *Store) Summarize() Summary {
 		return out
 	}
 	step := Interval.Seconds()
+	var cpuRun, gpuRun bool // un épisode se termine à la première mesure sans limitation
 	var tempSum float64
 	var tempN int
+	// part est du plus récent au plus ancien : on le parcourt tel quel, un épisode est une suite continue de mesures.
 	for _, smp := range part {
 		out.Samples++
 		if smp.Temp > 0 {
@@ -55,6 +62,20 @@ func (s *Store) Summarize() Summary {
 		if smp.CPUUsage > 80 {
 			out.MinutesHighLoad += int(step)
 		}
+		if smp.ThrCPU {
+			out.ThrottleCPUMinutes += int(step)
+			if !cpuRun {
+				out.ThrottleCPUEpisodes++
+			}
+		}
+		cpuRun = smp.ThrCPU
+		if smp.ThrGPU {
+			out.ThrottleGPUMinutes += int(step)
+			if !gpuRun {
+				out.ThrottleGPUEpisodes++
+			}
+		}
+		gpuRun = smp.ThrGPU
 		if smp.GPUTemp > out.MaxGPUTempC {
 			out.MaxGPUTempC = smp.GPUTemp
 		}
@@ -75,6 +96,8 @@ func (s *Store) Summarize() Summary {
 	out.MinutesAbove70 /= 60
 	out.MinutesHighLoad /= 60
 	out.MinutesOnBattery /= 60
+	out.ThrottleCPUMinutes /= 60
+	out.ThrottleGPUMinutes /= 60
 	out.CoveredHours = float64(part[0].T-part[len(part)-1].T) / 3600
 	return out
 }

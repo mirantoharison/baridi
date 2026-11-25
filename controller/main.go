@@ -240,6 +240,16 @@ func serve(addr string, stop <-chan struct{}, onQuit func()) error {
 		go store.Run(historyStop, func() history.Sample { return collectSample(controller, monitor) })
 	}
 
+	// Santé de la batterie : un relevé par jour (usure, capacité, cycles) pour suivre son vieillissement sur des mois.
+	health := history.OpenHealth(filepath.Join(exeDir, "battery_health.jsonl"))
+	server.SetHealth(health)
+	healthStop := make(chan struct{})
+	defer close(healthStop)
+	go health.Run(healthStop, func() (float64, int, int, bool) {
+		d, ok := hw.ReadBatteryDetails()
+		return d.WearPercent, d.FullChargedMWh, d.CycleCount, ok
+	})
+
 	// IMPORTANT : démarrage en Auto. Sans UI ouverte (service au boot), personne ne choisirait
 	// de mode, et le ventilateur resterait hors de la gestion du firmware sans être piloté.
 	controller.StartAuto()
@@ -292,8 +302,15 @@ func collectSample(controller *fan.Controller, monitor *hw.Monitor) history.Samp
 	}
 	if snap, fresh := monitor.Latest(); fresh {
 		smp.CPUUsage = int(snap.CPU.UsagePercent + 0.5)
+		smp.ThrCPU = snap.CPU.Throttled
 		if g := snap.GPU; g != nil && !g.Asleep {
 			smp.GPUTemp, smp.GPUUsage, smp.GPUPower = g.TempC, g.UsagePercent, g.PowerW
+			for _, reason := range g.Throttle {
+				// « sw_thermal » est le plafond de plateforme que les portables déclarent en permanence : ce n'est pas une limitation.
+				if reason != "sw_thermal" {
+					smp.ThrGPU = true
+				}
+			}
 		}
 	}
 	if bat := hw.ReadBattery(); bat.Present {
