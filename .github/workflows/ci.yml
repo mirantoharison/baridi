@@ -1,0 +1,49 @@
+name: CI
+
+# Vérifie à chaque envoi que le contrôleur Go et l'interface compilent et passent leurs contrôles.
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  build:
+    # IMPORTANT : Windows seulement. Le contrôleur appelle des API Windows (registre, NVML, GDI) et la DLL ASUS.
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: controller/go.mod
+          cache-dependency-path: controller/go.sum
+
+      - uses: oven-sh/setup-bun@v2
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: app/src-tauri
+
+      - name: Contrôleur Go - analyse et tests
+        working-directory: controller
+        run: |
+          go vet ./...
+          go test ./...
+
+      - name: Interface - dépendances
+        working-directory: app
+        run: bun install --frozen-lockfile
+
+      - name: Contrôleur compilé pour la coque Tauri
+        working-directory: app
+        run: bun run core
+
+      - name: Interface - types et compilation
+        working-directory: app
+        run: bun run build
+
+      - name: Coque Tauri - vérification Rust
+        working-directory: app/src-tauri
+        run: cargo check --locked
