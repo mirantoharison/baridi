@@ -1,3 +1,4 @@
+import { ChartPath } from "@/components/chart-path"
 import { useState } from "react"
 import { useTranslation } from "react-i18next"
 import type { Sample } from "@/hooks/use-fan"
@@ -69,7 +70,7 @@ export function HistoryChart({ history }: { history: Sample[] }) {
         {available
           .filter((s) => s.always || enabled.has(s.id))
           .map((s) => (
-            <path key={s.id} d={path(history.map(s.pick), s.max)} fill="none" stroke={s.color} strokeWidth="2" vectorEffect="non-scaling-stroke" />
+            <ChartPath key={s.id} d={path(history.map(s.pick), s.max)} height={H} color={s.color} fillColor={s.color.startsWith("url(") ? "var(--warm)" : undefined} />
           ))}
       </svg>
       <div className="mt-2 flex flex-wrap gap-2 text-xs">

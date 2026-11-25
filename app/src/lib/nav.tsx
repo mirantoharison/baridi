@@ -1,9 +1,14 @@
 import type { ComponentType, ReactNode } from "react"
-import { Bell, BookOpen, Download, History, Gauge, Info, Keyboard, ListChecks, ScrollText, Server, Settings2, Stethoscope, Zap } from "lucide-react"
+import { Activity, BatteryFull, Bell, BookOpen, Cpu, DatabaseBackup, Download, FileBarChart, History, Gauge, Info, Keyboard, LifeBuoy, ListChecks, ScrollText, Server, Settings2, Stethoscope, Zap } from "lucide-react"
 import { AboutTab } from "@/components/about-tab"
+import { BackupTab } from "@/components/backup-tab"
+import { EnergyTab } from "@/components/energy-tab"
+import { GpuTab } from "@/components/gpu-tab"
+import { HelpTab } from "@/components/help-tab"
+import { ReportsTab } from "@/components/reports-tab"
+import { SensorsTab } from "@/components/sensors-tab"
 import { AutomationTab } from "@/components/automation-tab"
 import { AlertsCard } from "@/components/alerts-card"
-import { AutostartCard } from "@/components/autostart-card"
 import { DiagnosticTab } from "@/components/diagnostic-tab"
 import { HistoryTab } from "@/components/history-tab"
 import { InfoTab } from "@/components/info-tab"
@@ -68,7 +73,10 @@ export const NAV_GROUPS: NavGroup[] = [
     labelKey: "common.nav.surveillance",
     pages: [
       { id: "info", labelKey: "common.nav.info", icon: Info, render: (fan) => <InfoTab fan={fan} /> },
-      { id: "historique", labelKey: "common.nav.history", icon: History, render: (fan) => <PageStack><HistoryTab batteryDetails={fan.status?.battery_details} /></PageStack> },
+      { id: "capteurs", labelKey: "common.nav.sensors", icon: Activity, render: (fan) => <SensorsTab fan={fan} /> },
+      { id: "gpu", labelKey: "common.nav.gpu", icon: Cpu, render: (fan) => <GpuTab fan={fan} /> },
+      { id: "energie", labelKey: "common.nav.energy", icon: BatteryFull, render: (fan) => <EnergyTab fan={fan} /> },
+      { id: "historique", labelKey: "common.nav.history", icon: History, render: (fan) => <PageStack><HistoryTab batteryDetails={fan.status?.battery_details} profiles={fan.profiles} activeProfileId={fan.status?.profile} onSaveProfile={fan.saveProfile} /></PageStack> },
     ],
   },
   {
@@ -132,7 +140,6 @@ export const NAV_GROUPS: NavGroup[] = [
         render: () => (
           <PageStack>
             <ServiceCard />
-            <AutostartCard />
           </PageStack>
         ),
       },
@@ -167,6 +174,9 @@ export const NAV_GROUPS: NavGroup[] = [
         },
         render: (fan) => <DiagnosticTab fan={fan} />,
       },
+      { id: "rapports", labelKey: "common.nav.reports", icon: FileBarChart, render: () => <ReportsTab /> },
+      { id: "sauvegarde", labelKey: "common.nav.backup", icon: DatabaseBackup, render: (fan) => <BackupTab fan={fan} /> },
+      { id: "aide", labelKey: "common.nav.help", icon: LifeBuoy, render: (fan) => <HelpTab fan={fan} /> },
       { id: "mises-a-jour", labelKey: "common.nav.updates", icon: Download, render: () => <UpdatesTab /> },
       { id: "logs", labelKey: "common.nav.logs", icon: ScrollText, scroll: false, render: () => <LogsTab /> },
     ],

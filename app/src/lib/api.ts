@@ -180,6 +180,15 @@ export interface HistorySample {
   ac?: boolean
 }
 
+/** Relevé quotidien de la santé de la batterie (GET /battery/health). */
+export interface HealthPoint {
+  /** AAAA-MM-JJ. */
+  date: string
+  wear_percent: number
+  full_charged_mwh: number
+  cycles?: number
+}
+
 /** Progression et résultat du test actif des ventilateurs (GET /diagnostic/fan-test). */
 export interface FanTestState {
   status: "idle" | "running" | "done" | "aborted" | "failed"
@@ -203,6 +212,17 @@ export interface DaySummary {
   battery_used_wh: number
   battery_charged_wh: number
   minutes_on_battery: number
+  throttle_cpu_minutes: number
+  throttle_cpu_episodes: number
+  throttle_gpu_minutes: number
+  throttle_gpu_episodes: number
+}
+
+/** Répartition des températures sur l'historique (GET /history/thermal). */
+export interface ThermalProfile {
+  samples: number
+  days_covered: number
+  buckets: { temp_c: number; samples: number; avg_percent: number; avg_cpu: number }[]
 }
 
 /** Diagnostic d'encrassement (GET /history/analysis). */
@@ -397,7 +417,9 @@ export const api = {
     const s = await post<FanTestState>("/diagnostic/fan-test")
     return { ...s, steps: s.steps ?? [] }
   },
+  batteryHealth: async () => (await request<{ points: HealthPoint[] }>("/battery/health", { quiet: true })).points,
   summary: () => request<DaySummary>("/history/summary", { quiet: true }),
+  thermal: () => request<ThermalProfile>("/history/thermal", { quiet: true }),
   fouling: () => request<Fouling>("/history/analysis", { quiet: true }),
   info: () => request<ControllerInfo>("/info"),
   stats: () => request<SessionStats>("/stats", { quiet: true }),

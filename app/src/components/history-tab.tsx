@@ -1,11 +1,14 @@
+import { ChartPath } from "@/components/chart-path"
 import { useCallback, useMemo, useState } from "react"
-import { BatteryMedium, Fan, History as HistoryIcon, Sun } from "lucide-react"
+import { BatteryMedium, Fan, History as HistoryIcon, Sparkles, Sun } from "lucide-react"
 import { Trans, useTranslation } from "react-i18next"
 import type { TFunction } from "i18next"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { usePolled } from "@/hooks/use-polled"
-import { api, type BatteryDetails, type DaySummary, type Fouling, type HistorySample } from "@/lib/api"
+import { MiniCurve } from "@/components/mini-curve"
+import { adviseCurve } from "@/lib/curve-advice"
+import { api, type BatteryDetails, type DaySummary, type FanProfile, type Fouling, type HistorySample, type ThermalProfile } from "@/lib/api"
 import { cn } from "@/lib/utils"
 
 /** L'historique change peu : une relecture toutes les 30 s (la période d'enregistrement du contrôleur) suffit. */
@@ -87,7 +90,7 @@ function Timeline({ samples, hours, enabled }: { samples: HistorySample[]; hours
           <line key={r} x1="0" x2={W} y1={H * r} y2={H * r} stroke="var(--border)" strokeDasharray="3 5" />
         ))}
         {SERIES.filter((s) => enabled.has(s.id)).map((s) => (
-          <path key={s.id} d={buildPath(samples, s.pick, s.max, t0, span, gap)} fill="none" stroke={s.color} strokeWidth="2" vectorEffect="non-scaling-stroke" />
+          <ChartPath key={s.id} d={buildPath(samples, s.pick, s.max, t0, span, gap)} height={H} color={s.color} fillColor={s.color.startsWith("url(") ? "var(--warm)" : undefined} />
         ))}
       </svg>
       <div className="mt-1 flex justify-between text-muted-foreground">
@@ -167,6 +170,68 @@ function BatteryCard({ details }: { details?: BatteryDetails }) {
   )
 }
 
+/** Suggestion de courbe : compare l'historique au profil actif et propose, sans rien appliquer seule, une variante. */
+function AdviceCard({ thermal, profile, onSave }: { thermal: ThermalProfile | null; profile?: FanProfile; onSave: (p: FanProfile) => Promise<void> }) {
+  const { t } = useTranslation()
+  const [isSaved, setIsSaved] = useState(false)
+  const advice = useMemo(() => adviseCurve(thermal, profile?.points ?? []), [thermal, profile])
+  const pct = (v: number) => `${Math.round(v * 100)} %`
+
+  const create = async () => {
+    if (!profile) return
+    await onSave({
+      id: `custom_${Date.now()}`,
+      name: t("history.advice.newName", { name: profile.name }),
+      description: t("history.advice.newDescription"),
+      icon: profile.icon,
+      points: advice.proposed,
+      source: "user",
+    })
+    setIsSaved(true)
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2 text-xs">
+          <Sparkles className="size-4 text-muted-foreground" /> {t("history.advice.title")}
+        </CardTitle>
+        <CardDescription>{t("history.advice.description")}</CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        {!profile || !thermal ? (
+          <p className="text-muted-foreground">{t("history.fouling.reading")}</p>
+        ) : advice.status === "insufficient" ? (
+          <p className="text-muted-foreground">{t("history.advice.insufficient", { count: advice.samples })}</p>
+        ) : advice.status === "fine" ? (
+          <p>{t("history.advice.fine", { name: profile.name })}</p>
+        ) : (
+          <>
+            {advice.shouldRaise && <p>{t("history.advice.raise", { share: pct(advice.hotShare) })}</p>}
+            {advice.shouldLower && <p>{t("history.advice.lower", { share: pct(advice.coolShare), speed: Math.round(advice.coolAvgPercent) })}</p>}
+            <div className="flex items-center gap-6 text-muted-foreground">
+              <div className="space-y-1">
+                <div>{t("history.advice.before")}</div>
+                <MiniCurve points={profile.points} width={120} height={56} strokeWidth={2} />
+              </div>
+              <div className="space-y-1">
+                <div>{t("history.advice.after")}</div>
+                <MiniCurve points={advice.proposed} width={120} height={56} strokeWidth={2} />
+              </div>
+            </div>
+            <div className="flex items-center gap-3">
+              <Button size="sm" onClick={create} disabled={isSaved}>
+                {isSaved ? t("history.advice.created") : t("history.advice.create", { name: t("history.advice.newName", { name: profile.name }) })}
+              </Button>
+              <span className="text-muted-foreground">{t("history.advice.safe")}</span>
+            </div>
+          </>
+        )}
+      </CardContent>
+    </Card>
+  )
+}
+
 function Stat({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex items-baseline justify-between gap-3">
@@ -203,6 +268,16 @@ function DayCard({ day }: { day: DaySummary | null }) {
             <Stat label={t("history.day.above70")} value={duration(day.minutes_above_70, t)} />
             <Stat label={t("history.day.highLoad")} value={day.minutes_high_load > 0 ? duration(day.minutes_high_load, t) : "—"} />
             {day.max_gpu_temp_c > 0 && <Stat label={t("history.day.gpuMax")} value={`${day.max_gpu_temp_c}°`} />}
+            <Stat
+              label={t("history.day.throttleCpu")}
+              value={day.throttle_cpu_episodes > 0 ? t("history.day.throttleValue", { minutes: day.throttle_cpu_minutes, count: day.throttle_cpu_episodes }) : t("history.day.noThrottle")}
+            />
+            {day.max_gpu_temp_c > 0 && (
+              <Stat
+                label={t("history.day.throttleGpu")}
+                value={day.throttle_gpu_episodes > 0 ? t("history.day.throttleValue", { minutes: day.throttle_gpu_minutes, count: day.throttle_gpu_episodes }) : t("history.day.noThrottle")}
+              />
+            )}
             <Stat label={t("history.day.onBattery")} value={day.minutes_on_battery > 0 ? duration(day.minutes_on_battery, t) : "—"} />
             {day.battery_used_wh > 0 && <Stat label={t("history.day.used")} value={`${day.battery_used_wh.toFixed(1)} Wh`} />}
             {day.battery_charged_wh > 0 && <Stat label={t("history.day.charged")} value={`${day.battery_charged_wh.toFixed(1)} Wh`} />}
@@ -215,7 +290,7 @@ function DayCard({ day }: { day: DaySummary | null }) {
 }
 
 /** Historique long : courbes sur plusieurs jours, diagnostic d'encrassement et santé de la batterie. */
-export function HistoryTab({ batteryDetails }: { batteryDetails?: BatteryDetails }) {
+export function HistoryTab({ batteryDetails, profiles, activeProfileId, onSaveProfile }: { batteryDetails?: BatteryDetails; profiles: FanProfile[]; activeProfileId?: string; onSaveProfile: (p: FanProfile) => Promise<void> }) {
   const { t } = useTranslation()
   const [hours, setHours] = useState(24)
   const [enabled, setEnabled] = useState<Set<string>>(() => new Set(SERIES.filter((s) => s.on).map((s) => s.id)))
@@ -223,6 +298,8 @@ export function HistoryTab({ batteryDetails }: { batteryDetails?: BatteryDetails
   const samples = usePolled(fetchSamples, REFRESH_MS)
   const fouling = usePolled(api.fouling, REFRESH_MS * 10)
   const day = usePolled(api.summary, REFRESH_MS * 2)
+  const thermal = usePolled(api.thermal, REFRESH_MS * 10)
+  const activeProfile = profiles.find((p) => p.id === activeProfileId)
 
   const available = SERIES.filter((s) => samples?.some((p) => s.pick(p) !== undefined))
   const toggle = (id: string) =>
@@ -290,6 +367,8 @@ export function HistoryTab({ batteryDetails }: { batteryDetails?: BatteryDetails
       </Card>
 
       <DayCard day={day} />
+
+      <AdviceCard thermal={thermal} profile={activeProfile} onSave={onSaveProfile} />
 
       <div className="grid grid-cols-2 gap-4">
         <FoulingCard fouling={fouling} />

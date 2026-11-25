@@ -1,6 +1,7 @@
 import { useState } from "react"
 import { Menu } from "lucide-react"
 import { useTranslation } from "react-i18next"
+import { ScrollArea } from "@/components/ui/scroll-area"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { FOOTER_PAGES, NAV_GROUPS, type NavBadge, type NavPage } from "@/lib/nav"
 import { cn } from "@/lib/utils"
@@ -109,7 +110,8 @@ export function AppSidebar({ activeId, onSelect, badges }: Props) {
         >
           <Menu className="size-4 shrink-0" />
         </button>
-        <div className="flex min-h-0 flex-1 flex-col gap-3 -mx-1 overflow-y-auto overflow-x-hidden px-1">
+        <ScrollArea className="min-h-0 flex-1">
+          <div className="flex flex-col gap-3">
           {NAV_GROUPS.map((group, i) => (
             <div key={group.labelKey} className="flex flex-col gap-0.5">
               {collapsed ? (
@@ -122,7 +124,8 @@ export function AppSidebar({ activeId, onSelect, badges }: Props) {
               ))}
             </div>
           ))}
-        </div>
+          </div>
+        </ScrollArea>
 
         <div className="flex flex-col gap-0.5 pt-2">
           {FOOTER_PAGES.map((page) => (

@@ -1,6 +1,8 @@
 /** Textes de la page Réglages : passage de la puissance (Steep/Smooth) et réglages fins du mode Auto. */
 export const settings = {
   fr: {
+    tabs: { general: "Général", fan: "Ventilation", widget: "Mini-widget" },
+    appearance: { title: "Apparence", description: "Thème et langue de l'interface. Les deux choix sont mémorisés.", theme: "Thème clair ou sombre", language: "Langue" },
     summary:
       "Ces <b>préférences globales</b> concernent le contrôleur dans son ensemble et non un profil en particulier. Elles sont conservées dans un fichier <code>settings.json</code> placé à côté de l'exécutable du contrôleur, ce qui signifie qu'elles sont retrouvées telles quelles à chaque lancement, que le contrôleur soit démarré par l'application ou par Windows. Tu y règles la manière dont la température est convertie en vitesse de ventilateur. Le service Windows, les alertes et les raccourcis clavier ont leur propre section « Configuration » dans la barre latérale.",
     details:
@@ -31,6 +33,8 @@ export const settings = {
     },
   },
   en: {
+    tabs: { general: "General", fan: "Fan control", widget: "Mini widget" },
+    appearance: { title: "Appearance", description: "Interface theme and language. Both choices are remembered.", theme: "Light or dark theme", language: "Language" },
     summary:
       "These <b>global preferences</b> concern the controller as a whole and not a particular profile. They are kept in a <code>settings.json</code> file next to the controller's executable, which means they are found unchanged at every launch, whether the controller is started by the application or by Windows. Here you set how the temperature is converted into fan speed. The Windows service, alerts and keyboard shortcuts have their own “Configuration” section in the sidebar.",
     details:

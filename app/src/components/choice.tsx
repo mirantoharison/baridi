@@ -17,7 +17,7 @@ export function Choice({ value, options, onChange, className }: {
 }) {
   const current = options.find((o) => o.value === value)
   return (
-    <Select value={value} onValueChange={(v) => v && onChange(v)}>
+    <Select value={value} onValueChange={(v) => v !== null && v !== undefined && onChange(v)}>
       <SelectTrigger className={className}>
         {current ? (
           <span className="flex items-center gap-2">

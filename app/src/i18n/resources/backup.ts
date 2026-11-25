@@ -1,0 +1,41 @@
+/** Textes de la page Sauvegarde. */
+export const backup = {
+  fr: {
+    exportTitle: "Exporter les réglages",
+    exportDescription: "Enregistre dans ton dossier Téléchargements un fichier unique contenant les alertes, les raccourcis, le mini-widget, le mode de courbe, les réglages fins, la source de température, tes profils personnalisés et tes règles d'automatisation. Il ne contient ni l'historique des mesures, ni le réglage du ventilateur 2 (le rétablir changerait le pilotage du matériel sans que tu l'aies demandé), ni la clé de l'API.",
+    exportButton: "Exporter tous les réglages",
+    reveal: "Afficher dans l'Explorateur",
+    saved: "Fichier enregistré : {{path}}",
+    importTitle: "Importer des réglages",
+    importDescription: "Choisis un fichier exporté par Baridi. Les réglages qu'il contient remplacent les tiens ; tes profils personnalisés de même identifiant sont remplacés, ceux qui n'y figurent pas sont conservés, et les profils du système ne sont jamais touchés.",
+    chooseFile: "Choisir un fichier…",
+    summary: "Sauvegarde du {{date}} : {{profiles}} profil(s) personnalisé(s) et {{rules}} règle(s) d'automatisation.",
+    warning: "L'import remplace les alertes, raccourcis, réglages du widget et réglages fins actuels, ainsi que toutes les règles d'automatisation.",
+    restore: "Importer ces réglages",
+    done: "Réglages importés : {{profiles}} profil(s) et {{rules}} règle(s) d'automatisation.",
+    errors: {
+      notJson: "Ce fichier n'est pas un fichier JSON valide.",
+      notBackup: "Ce fichier n'est pas une sauvegarde de Baridi - Fancontroller.",
+      tooNew: "Cette sauvegarde vient d'une version plus récente de l'application : mets l'application à jour avant de l'importer.",
+    },
+  },
+  en: {
+    exportTitle: "Export settings",
+    exportDescription: "Saves a single file in your Downloads folder containing the alerts, shortcuts, mini widget, curve mode, fine settings, temperature source, your custom profiles and your automation rules. It contains neither the measurement history, nor fan 2's setting (restoring it would change how the hardware is controlled without you asking), nor the API key.",
+    exportButton: "Export all settings",
+    reveal: "Show in Explorer",
+    saved: "File saved: {{path}}",
+    importTitle: "Import settings",
+    importDescription: "Choose a file exported by Baridi. The settings it contains replace yours; custom profiles with the same identifier are replaced, those not in it are kept, and system profiles are never touched.",
+    chooseFile: "Choose a file…",
+    summary: "Backup from {{date}}: {{profiles}} custom profile(s) and {{rules}} automation rule(s).",
+    warning: "Importing replaces the current alerts, shortcuts, widget settings and fine settings, as well as all automation rules.",
+    restore: "Import these settings",
+    done: "Settings imported: {{profiles}} profile(s) and {{rules}} automation rule(s).",
+    errors: {
+      notJson: "This file is not valid JSON.",
+      notBackup: "This file is not a Baridi - Fancontroller backup.",
+      tooNew: "This backup comes from a newer version of the application: update the application before importing it.",
+    },
+  },
+}
