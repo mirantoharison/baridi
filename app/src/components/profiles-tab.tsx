@@ -87,7 +87,7 @@ export function ProfilesTab({ profiles, status, onActivate, onSave, onDelete }: 
                   key={p.id}
                   onClick={() => select(p.id)}
                   className={cn(
-                    "flex h-10 shrink-0 items-center gap-3 rounded-lg px-3 text-left transition-colors hover:bg-accent",
+                    "flex h-10 shrink-0 items-center gap-3 rounded-none px-3 text-left transition-colors hover:bg-accent",
                     selected?.id === p.id && view === "view" && "bg-accent",
                   )}
                 >
@@ -112,7 +112,7 @@ export function ProfilesTab({ profiles, status, onActivate, onSave, onDelete }: 
             <Card className="flex-1">
               <CardHeader className="flex flex-row items-start justify-between gap-3">
                 <div className="flex items-center gap-3">
-                  <div className="flex size-9 items-center justify-center rounded-md bg-muted">
+                  <div className="flex size-9 items-center justify-center rounded-none bg-muted">
                     <ProfileIcon name={selected.icon} className="size-5" />
                   </div>
                   <div>

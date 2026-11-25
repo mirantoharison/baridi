@@ -1,10 +1,11 @@
 import { Check } from "lucide-react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { MiniCurve } from "@/components/mini-curve"
-import { ServiceCard } from "@/components/service-card"
 import { InfoNote } from "@/components/info-note"
+import { TempSourceCard } from "@/components/temp-source-card"
+import { TuningCard } from "@/components/tuning-card"
 import type { CurveMode } from "@/lib/curve-path"
-import type { CurvePoint } from "@/lib/api"
+import type { CurvePoint, FanStatus, TempSource, TuningPatch } from "@/lib/api"
 import { cn } from "@/lib/utils"
 
 // Courbe d'exemple (indépendante des profils) : sert uniquement à illustrer la différence entre les deux modes.
@@ -23,20 +24,23 @@ const OPTIONS: { id: CurveMode; title: string; text: string }[] = [
 interface Props {
   curveMode: CurveMode
   onCurveMode: (mode: CurveMode) => void
+  status: FanStatus | null
+  onTuning: (patch: TuningPatch) => void
+  onTempSource: (source: TempSource) => void
 }
 
-/** Préférences globales du contrôleur. Pour l'instant : passage de la puissance (Steep / Smooth). */
-export function SettingsTab({ curveMode, onCurveMode }: Props) {
+/** Préférences globales du contrôleur : passage de la puissance (Steep / Smooth) et réglages fins du mode Auto. */
+export function SettingsTab({ curveMode, onCurveMode, status, onTuning, onTempSource }: Props) {
   return (
     <div className="flex flex-1 flex-col gap-4">
       <InfoNote
         summary={
           <>
-        Ces <b>préférences globales</b> concernent le contrôleur dans son ensemble et non un profil en particulier. Elles sont conservées dans un fichier <code>settings.json</code> placé à côté de l'exécutable du contrôleur, ce qui signifie qu'elles sont retrouvées telles quelles à chaque lancement, que le contrôleur soit démarré par l'application ou par Windows. Tu y règles la manière dont la température est convertie en vitesse de ventilateur, ainsi que l'exécution du contrôleur comme service Windows, qui lui permet de piloter le ventilateur dès le démarrage de la machine, sans attendre que tu ouvres l'application.
+        Ces <b>préférences globales</b> concernent le contrôleur dans son ensemble et non un profil en particulier. Elles sont conservées dans un fichier <code>settings.json</code> placé à côté de l'exécutable du contrôleur, ce qui signifie qu'elles sont retrouvées telles quelles à chaque lancement, que le contrôleur soit démarré par l'application ou par Windows. Tu y règles la manière dont la température est convertie en vitesse de ventilateur. Le service Windows, les alertes et les raccourcis clavier ont leur propre section « Configuration » dans la barre latérale.
           </>
         }
       >
-      Le mode de <b>passage de la puissance</b> s'applique à tous les profils, mais uniquement en mode Auto : en mode Manuel, la courbe n'est de toute façon pas utilisée. En <b>Steep</b>, la courbe fonctionne par paliers : chaque point fixe la vitesse tant que la température reste inférieure à sa valeur, puis la vitesse saute au palier suivant dès que ce seuil est franchi. En <b>Smooth</b>, la vitesse est calculée par interpolation linéaire entre deux points voisins, ce qui donne une montée progressive ; sous le premier point la vitesse de ce point est conservée, et au-dessus du dernier point c'est la vitesse du dernier point qui s'applique. Dans les deux cas, le contrôleur rejoint ensuite la cible par petites étapes pour éviter les variations brutales de bruit. Les petites illustrations schématisent la différence entre les deux modes à partir d'une courbe d'exemple ; clique sur une carte pour sélectionner son mode, le changement est appliqué tout de suite et mémorisé. En dessous, la carte <b>Service Windows</b> permet d'installer le contrôleur comme un vrai service : il démarre alors avec la machine, avant même l'ouverture de ta session, et continue de piloter le ventilateur quand l'application est fermée. Son installation et sa suppression demandent les droits administrateur, et le service ne remplace pas l'application : celle-ci reste l'outil pour consulter les mesures et régler les profils.
+      Le mode de <b>passage de la puissance</b> s'applique à tous les profils, mais uniquement en mode Auto : en mode Manuel, la courbe n'est de toute façon pas utilisée. En <b>Steep</b>, la courbe fonctionne par paliers : chaque point fixe la vitesse tant que la température reste inférieure à sa valeur, puis la vitesse saute au palier suivant dès que ce seuil est franchi. En <b>Smooth</b>, la vitesse est calculée par interpolation linéaire entre deux points voisins, ce qui donne une montée progressive ; sous le premier point la vitesse de ce point est conservée, et au-dessus du dernier point c'est la vitesse du dernier point qui s'applique. Dans les deux cas, le contrôleur rejoint ensuite la cible par petites étapes pour éviter les variations brutales de bruit. Les petites illustrations schématisent la différence entre les deux modes à partir d'une courbe d'exemple ; clique sur une carte pour sélectionner son mode, le changement est appliqué tout de suite et mémorisé.
       </InfoNote>
 
       <Card className="flex-1">
@@ -53,11 +57,11 @@ export function SettingsTab({ curveMode, onCurveMode }: Props) {
                 onClick={() => onCurveMode(id)}
                 aria-pressed={selected}
                 className={cn(
-                  "flex items-center gap-5 rounded-xl border p-4 text-left transition-colors hover:bg-accent/50",
+                  "flex items-center gap-5 rounded-none border p-4 text-left transition-colors hover:bg-accent/50",
                   selected && "border-primary bg-accent/40",
                 )}
               >
-                <div className="flex shrink-0 items-center justify-center rounded-lg bg-muted px-4 py-3 text-foreground">
+                <div className="flex shrink-0 items-center justify-center rounded-none bg-muted px-4 py-3 text-foreground">
                   <MiniCurve points={SAMPLE} mode={id} width={120} height={56} strokeWidth={2.5} />
                 </div>
                 <div className="flex-1 space-y-1">
@@ -73,7 +77,9 @@ export function SettingsTab({ curveMode, onCurveMode }: Props) {
         </CardContent>
       </Card>
 
-      <ServiceCard />
+      <TempSourceCard status={status} onSelect={onTempSource} />
+
+      <TuningCard status={status} onTuning={onTuning} />
     </div>
   )
 }

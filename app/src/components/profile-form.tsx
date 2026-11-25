@@ -94,7 +94,7 @@ export function ProfileForm({ profiles, curveMode, initial, base, onSave, onCanc
                 title={label}
                 onClick={() => setIcon(n)}
                 className={cn(
-                  "flex size-9 items-center justify-center rounded-md border transition-colors hover:bg-accent",
+                  "flex size-9 items-center justify-center rounded-none border transition-colors hover:bg-accent",
                   icon === n && "border-primary bg-accent",
                 )}
               >
@@ -138,7 +138,7 @@ export function ProfileForm({ profiles, curveMode, initial, base, onSave, onCanc
           </div>
           <CurveEditor points={points} editable onChange={setPoints} mode={curveMode} />
           <p className="text-muted-foreground">
-            Chaque ligne du tableau est un point de la courbe : la première colonne indique la température en degrés et la seconde la vitesse du ventilateur en pourcentage. Selon le mode choisi dans les réglages, un point fixe la vitesse tant que la température reste sous sa valeur (Steep) ou sert de repère entre lesquels la vitesse est interpolée (Smooth) ; dans les deux cas, la vitesse du dernier point s'applique au-delà de sa température. Tu peux glisser les points verticalement sur le graphique pour régler leur vitesse, par pas de 5 %, saisir directement les valeurs dans le tableau pour plus de précision, ajouter un point avec le bouton « Palier » ou en retirer un avec la croix (il en faut au moins un). Les points sont triés par température à l'enregistrement et les vitesses sont limitées entre 0 et 100 %. Pense à garder une courbe qui monte avec la température : une courbe qui redescendrait à chaud ralentirait le ventilateur au pire moment. Le nom est obligatoire, la description et l'icône servent seulement à reconnaître le profil dans les listes.
+            Chaque ligne du tableau est un point de la courbe : la première colonne indique la température en degrés et la seconde la vitesse du ventilateur en pourcentage. Selon le mode choisi dans les réglages, un point fixe la vitesse tant que la température reste sous sa valeur (Steep) ou sert de repère entre lesquels la vitesse est interpolée (Smooth) ; dans les deux cas, la vitesse du dernier point s'applique au-delà de sa température. Sur le graphique, tu peux glisser un point pour régler sa vitesse (par pas de 5 %) et sa température (par degré, sans dépasser ses voisins), double-cliquer sur le fond pour ajouter un point exactement sur la courbe actuelle, ou double-cliquer sur un point pour le retirer ; au clavier, sélectionne un point puis utilise les flèches (haut et bas pour la vitesse, gauche et droite pour la température) et Suppr pour le retirer. Tu peux aussi saisir directement les valeurs dans le tableau pour plus de précision, ajouter un point avec le bouton « Palier » ou en retirer un avec la croix (il en faut au moins un). Les points sont triés par température à l'enregistrement et les vitesses sont limitées entre 0 et 100 %. Pense à garder une courbe qui monte avec la température : une courbe qui redescendrait à chaud ralentirait le ventilateur au pire moment. Le nom est obligatoire, la description et l'icône servent seulement à reconnaître le profil dans les listes.
           </p>
           <div className="grid grid-cols-[1fr_1fr_auto] items-center gap-2">
             <span className="text-muted-foreground">Jusqu'à (°C)</span>
