@@ -15,10 +15,10 @@
         "label": "main",
         "title": "Baridi - Fancontroller",
         "width": 800,
-        "height": 840,
+        "height": 800,
         "minWidth": 800,
-        "minHeight": 780,
-        "resizable": true,
+        "minHeight": 800,
+        "resizable": false,
         "maximizable": false,
         "visible": false
       },
@@ -60,7 +60,18 @@
     ],
     "resources": {
       "binaries/AsusWinIO64.dll": "AsusWinIO64.dll",
-      "binaries/PsExec.exe": "PsExec.exe"
+      "binaries/PsExec.exe": "PsExec.exe",
+      "../../README.md": "README.md"
+    },
+    "windows": {
+      "nsis": {
+        "installerIcon": "icons/icon.ico",
+        "languages": [
+          "French",
+          "English"
+        ],
+        "displayLanguageSelector": false
+      }
     }
   }
 }
