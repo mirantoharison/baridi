@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react"
 import { BellOff } from "lucide-react"
+import { Trans, useTranslation } from "react-i18next"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -11,10 +12,10 @@ import { updatePrefs, usePrefs } from "@/lib/prefs"
 const MIN_TEMP = 30
 const MAX_TEMP = 110
 
-const SNOOZE_OPTIONS: { label: string; minutes: number }[] = [
-  { label: "30 min", minutes: 30 },
-  { label: "1 h", minutes: 60 },
-  { label: "2 h", minutes: 120 },
+const SNOOZE_OPTIONS: { key: string; minutes: number }[] = [
+  { key: "m30", minutes: 30 },
+  { key: "h1", minutes: 60 },
+  { key: "h2", minutes: 120 },
 ]
 const MINUTE_MS = 60_000
 /** Le décompte affiché se rafraîchit à cette cadence : la précision à la minute suffit. */
@@ -66,6 +67,7 @@ function TempField({ id, label, value, min, max, disabled, onChange }: {
 
 /** Alertes thermiques (notifications natives). Préférences stockées côté interface (AppData). */
 export function AlertsCard() {
+  const { t } = useTranslation()
   const { alerts } = usePrefs()
   const minutesLeft = useSnoozeMinutesLeft(alerts.snoozeUntil)
   const snoozed = minutesLeft > 0
@@ -73,25 +75,25 @@ export function AlertsCard() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-xs">Alertes de température</CardTitle>
+        <CardTitle className="text-xs">{t("config.alerts.title")}</CardTitle>
         <CardDescription>
-          Les alertes envoient une <b className="text-foreground">notification Windows</b> quand la température du processeur franchit un seuil, même si la fenêtre est réduite dans la zone de notification : une seule notification par franchissement, puis le seuil n'est réarmé qu'une fois la température redescendue de 5° en dessous, pour ne pas t'envoyer de message en boucle quand elle oscille autour de la limite. Ces préférences sont enregistrées dans un fichier de l'interface, indépendant du contrôleur.
+          <Trans i18nKey="config.alerts.description" components={{ b: <b className="text-foreground" /> }} />
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-3">
-        {!isTauri && <p className="text-muted-foreground">Les notifications ne fonctionnent que dans l'application installée.</p>}
+        {!isTauri && <p className="text-muted-foreground">{t("config.alerts.onlyInstalled")}</p>}
 
         <div className="space-y-3 rounded-none border p-3">
           <div className="flex items-center justify-between gap-4">
             <Label htmlFor="alerts-enabled" className="flex flex-col items-start gap-1">
-              <span className="font-medium">Activer les alertes</span>
-              <span className="font-normal text-muted-foreground">Notification quand un seuil est franchi.</span>
+              <span className="font-medium">{t("config.alerts.enable")}</span>
+              <span className="font-normal text-muted-foreground">{t("config.alerts.enableHint")}</span>
             </Label>
             <Switch id="alerts-enabled" checked={alerts.enabled} onCheckedChange={(v) => updatePrefs("alerts", { enabled: v })} />
           </div>
           <TempField
             id="alerts-warn"
-            label="Seuil « Température élevée »"
+            label={t("config.alerts.warn")}
             value={alerts.warnTemp}
             min={MIN_TEMP}
             max={alerts.criticalTemp - 1}
@@ -100,7 +102,7 @@ export function AlertsCard() {
           />
           <TempField
             id="alerts-critical"
-            label="Seuil « Température critique »"
+            label={t("config.alerts.critical")}
             value={alerts.criticalTemp}
             min={alerts.warnTemp + 1}
             max={MAX_TEMP}
@@ -109,8 +111,8 @@ export function AlertsCard() {
           />
           <div className="flex items-center justify-between gap-4">
             <Label htmlFor="alerts-disconnect" className="flex flex-col items-start gap-1">
-              <span className="font-normal">Prévenir si le contrôleur ne répond plus</span>
-              <span className="font-normal text-muted-foreground">Le ventilateur garde sa dernière vitesse tant qu'il est injoignable.</span>
+              <span className="font-normal">{t("config.alerts.disconnect")}</span>
+              <span className="font-normal text-muted-foreground">{t("config.alerts.disconnectHint")}</span>
             </Label>
             <Switch
               id="alerts-disconnect"
@@ -124,14 +126,14 @@ export function AlertsCard() {
         <div className="space-y-3 rounded-none border p-3">
           <div className="flex items-center justify-between gap-4">
             <Label htmlFor="alerts-gpu" className="flex flex-col items-start gap-1">
-              <span className="font-medium">Alertes de la carte graphique</span>
-              <span className="font-normal text-muted-foreground">Mêmes notifications, avec des seuils à part. Une carte endormie n'en déclenche aucune.</span>
+              <span className="font-medium">{t("config.alerts.gpu")}</span>
+              <span className="font-normal text-muted-foreground">{t("config.alerts.gpuHint")}</span>
             </Label>
             <Switch id="alerts-gpu" checked={alerts.gpuEnabled} disabled={!alerts.enabled} onCheckedChange={(v) => updatePrefs("alerts", { gpuEnabled: v })} />
           </div>
           <TempField
             id="alerts-gpu-warn"
-            label="Seuil « Température élevée » (carte)"
+            label={t("config.alerts.gpuWarn")}
             value={alerts.gpuWarnTemp}
             min={MIN_TEMP}
             max={alerts.gpuCriticalTemp - 1}
@@ -140,7 +142,7 @@ export function AlertsCard() {
           />
           <TempField
             id="alerts-gpu-critical"
-            label="Seuil « Température critique » (carte)"
+            label={t("config.alerts.gpuCritical")}
             value={alerts.gpuCriticalTemp}
             min={alerts.gpuWarnTemp + 1}
             max={MAX_TEMP}
@@ -152,13 +154,13 @@ export function AlertsCard() {
         <div className="space-y-3 rounded-none border p-3">
           <div className="flex items-center gap-2">
             <BellOff className="size-4 text-muted-foreground" />
-            <span className="font-medium">Mettre en pause</span>
+            <span className="font-medium">{t("config.alerts.snooze")}</span>
           </div>
           <p className="text-muted-foreground">
-            Coupe temporairement les notifications « Température élevée » et celles du contrôleur, par exemple pendant une partie ou une compilation qui fait chauffer volontairement. <b className="text-foreground">L'alerte « critique » n'est jamais mise en pause.</b>
+            <Trans i18nKey="config.alerts.snoozeText" components={{ b: <b className="text-foreground" /> }} />
           </p>
           <div className="flex flex-wrap items-center gap-2">
-            {SNOOZE_OPTIONS.map(({ label, minutes }) => (
+            {SNOOZE_OPTIONS.map(({ key, minutes }) => (
               <Button
                 key={minutes}
                 size="sm"
@@ -166,14 +168,14 @@ export function AlertsCard() {
                 disabled={!alerts.enabled}
                 onClick={() => updatePrefs("alerts", { snoozeUntil: Date.now() + minutes * MINUTE_MS })}
               >
-                {label}
+                {t(`config.alerts.${key}`)}
               </Button>
             ))}
             {snoozed && (
               <>
-                <span className="text-muted-foreground">En pause encore {minutesLeft} min</span>
+                <span className="text-muted-foreground">{t("config.alerts.snoozeRemaining", { minutes: minutesLeft })}</span>
                 <Button size="sm" variant="ghost" onClick={() => updatePrefs("alerts", { snoozeUntil: 0 })}>
-                  Reprendre
+                  {t("config.alerts.resume")}
                 </Button>
               </>
             )}

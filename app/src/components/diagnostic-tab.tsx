@@ -1,4 +1,6 @@
 import { useEffect, useRef, useState } from "react"
+import { Trans, useTranslation } from "react-i18next"
+import type { TFunction } from "i18next"
 import { AlertTriangle, CheckCircle2, Circle, ClipboardCopy, Loader2, MinusCircle, Play, Square, XCircle } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -15,19 +17,11 @@ type State = "pending" | "running" | "ok" | "warn" | "fail" | "skipped"
 
 interface Check {
   id: string
-  label: string
   state: State
   detail?: string
 }
 
-const INITIAL_CHECKS: Check[] = [
-  { id: "api", label: "Contrôleur joignable", state: "pending" },
-  { id: "stream", label: "Flux de mesures en direct", state: "pending" },
-  { id: "temp", label: "Lecture de la température", state: "pending" },
-  { id: "fan2", label: "Nombre de ventilateurs", state: "pending" },
-  { id: "service", label: "Service Windows", state: "pending" },
-  { id: "fan", label: "Réponse du ventilateur (test actif)", state: "pending" },
-]
+const INITIAL_CHECKS: Check[] = ["api", "stream", "temp", "fan2", "service", "fan"].map((id) => ({ id, state: "pending" as State }))
 
 /** Test actif refusé au-dessus : un ventilateur à 30 % sur un processeur déjà chaud serait imprudent. */
 const ACTIVE_TEST_MAX_TEMP_C = 75
@@ -50,7 +44,6 @@ const STATE_ICON: Record<State, { icon: typeof Circle; className: string }> = {
   skipped: { icon: MinusCircle, className: "text-muted-foreground" },
 }
 
-const STATE_LABEL: Record<State, string> = { pending: "En attente", running: "En cours", ok: "OK", warn: "Attention", fail: "Échec", skipped: "Ignoré" }
 
 class Aborted extends Error {}
 
@@ -64,13 +57,13 @@ function sleep(ms: number, signal: AbortSignal): Promise<void> {
 }
 
 /** Texte brut du rapport : ne contient que des états et des mesures, rien de personnel. */
-function buildReport(checks: Check[], fan: Fan): string {
+function buildReport(checks: Check[], fan: Fan, t: TFunction, locale: string): string {
   const s = fan.status
-  const lines = checks.map((c) => `[${STATE_LABEL[c.state]}] ${c.label}${c.detail ? ` — ${c.detail}` : ""}`)
+  const lines = checks.map((c) => `[${t(`diagnostic.states.${c.state}`)}] ${t(`diagnostic.checks.${c.id}`)}${c.detail ? ` — ${c.detail}` : ""}`)
   const context = s
-    ? `Mode ${s.mode}, profil ${s.profile}, courbe ${s.curve_mode}, ${s.temp_c}°C, ${s.rpm} RPM (${s.percent} %)`
-    : "Statut indisponible"
-  return [`Baridi - Fancontroller — diagnostic du ${new Date().toLocaleString()}`, context, "", ...lines].join("\n")
+    ? t("diagnostic.report.context", { mode: s.mode, profile: s.profile, curve: s.curve_mode, temp: s.temp_c, rpm: s.rpm, percent: s.percent })
+    : t("diagnostic.report.noStatus")
+  return [t("diagnostic.report.title", { date: new Date().toLocaleString(locale) }), context, "", ...lines].join("\n")
 }
 
 /**
@@ -78,6 +71,7 @@ function buildReport(checks: Check[], fan: Fan): string {
  * Le test actif change temporairement la vitesse puis restaure le mode d'origine, même en cas d'annulation ou d'erreur.
  */
 export function DiagnosticTab({ fan }: { fan: Fan }) {
+  const { t, i18n } = useTranslation()
   const [checks, setChecks] = useState<Check[]>(INITIAL_CHECKS)
   const [running, setRunning] = useState(false)
   const [withActiveTest, setWithActiveTest] = useState(true)
@@ -109,9 +103,9 @@ export function DiagnosticTab({ fan }: { fan: Fan }) {
 
   const runActiveTest = async (signal: AbortSignal) => {
     const before = fanRef.current.status
-    if (!before) return set("fan", "skipped", "statut indisponible")
+    if (!before) return set("fan", "skipped", t("diagnostic.details.noStatus"))
     if (before.temp_c >= ACTIVE_TEST_MAX_TEMP_C) {
-      return set("fan", "skipped", `processeur à ${before.temp_c}° (limite ${ACTIVE_TEST_MAX_TEMP_C}°) : test refusé par prudence`)
+      return set("fan", "skipped", t("diagnostic.details.tooHot", { temp: before.temp_c, limit: ACTIVE_TEST_MAX_TEMP_C }))
     }
     set("fan", "running", `${LOW_PERCENT} %…`)
     try {
@@ -123,10 +117,10 @@ export function DiagnosticTab({ fan }: { fan: Fan }) {
 
       const summary = `${LOW_PERCENT} % → ${lowRpm} RPM · ${HIGH_PERCENT} % → ${highRpm} RPM`
       const delta = highRpm - lowRpm
-      if (lowRpm === 0 && highRpm === 0) set("fan", "fail", `${summary} : aucune rotation mesurée (capteur illisible ou ventilateur arrêté)`)
+      if (lowRpm === 0 && highRpm === 0) set("fan", "fail", t("diagnostic.details.noRotation", { summary }))
       else if (delta >= MIN_DELTA_OK_RPM) set("fan", "ok", summary)
-      else if (delta >= MIN_DELTA_WARN_RPM) set("fan", "warn", `${summary} : réponse faible (seuils indicatifs)`)
-      else set("fan", "fail", `${summary} : le ventilateur ne suit pas la consigne`)
+      else if (delta >= MIN_DELTA_WARN_RPM) set("fan", "warn", t("diagnostic.details.weak", { summary }))
+      else set("fan", "fail", t("diagnostic.details.notFollowing", { summary }))
     } finally {
       // IMPORTANT : on rend toujours la main dans l'état d'origine, test terminé, annulé ou en erreur.
       const f = fanRef.current
@@ -151,21 +145,21 @@ export function DiagnosticTab({ fan }: { fan: Fan }) {
       const started = performance.now()
       try {
         await api.status()
-        set("api", "ok", `réponse en ${Math.round(performance.now() - started)} ms`)
+        set("api", "ok", t("diagnostic.details.responded", { ms: Math.round(performance.now() - started) }))
       } catch (e) {
         set("api", "fail", (e as Error).message)
-        for (const id of ["stream", "temp", "fan2", "service", "fan"]) set(id, "skipped", "contrôleur injoignable")
+        for (const id of ["stream", "temp", "fan2", "service", "fan"]) set(id, "skipped", t("diagnostic.details.unreachable"))
         return
       }
 
       // 2. Flux SSE
-      set("stream", fanRef.current.online ? "ok" : "fail", fanRef.current.online ? "mesures reçues chaque seconde" : "flux interrompu, reconnexion en cours")
+      set("stream", fanRef.current.online ? "ok" : "fail", fanRef.current.online ? t("diagnostic.details.streamOk") : t("diagnostic.details.streamDown"))
 
       // 3. Température
       const temp = fanRef.current.status?.temp_c
-      if (temp === undefined) set("temp", "fail", "aucune mesure reçue")
-      else if (temp <= 0) set("temp", "fail", "0° : capteur illisible (DLL ASUS ou droits administrateur)")
-      else if (temp > 110) set("temp", "warn", `${temp}° : valeur aberrante`)
+      if (temp === undefined) set("temp", "fail", t("diagnostic.details.noMeasure"))
+      else if (temp <= 0) set("temp", "fail", t("diagnostic.details.unreadable"))
+      else if (temp > 110) set("temp", "warn", t("diagnostic.details.absurd", { temp }))
       else set("temp", "ok", `${temp}°`)
 
       // 3 bis. Nombre de ventilateurs, tel que l'annonce la DLL ASUS : informatif — un seul est parfaitement normal.
@@ -173,21 +167,21 @@ export function DiagnosticTab({ fan }: { fan: Fan }) {
       const rpm2 = fanRef.current.status?.fan2_rpm
       if (fanCount === undefined) {
         // Contrôleur ancien (sans fan_count) : on se rabat sur la seule mesure du second ventilateur.
-        if (rpm2 === undefined) set("fan2", "skipped", "aucune rotation détectée sur un second ventilateur")
-        else set("fan2", "ok", `second ventilateur détecté, ${rpm2} RPM`)
-      } else if (fanCount < 0) set("fan2", "skipped", "la DLL ne précise pas le nombre de ventilateurs")
-      else if (fanCount <= 1) set("fan2", "ok", `la DLL annonce ${fanCount} ventilateur`)
-      else if (rpm2 !== undefined) set("fan2", "ok", `la DLL annonce ${fanCount} ventilateurs, le second tourne à ${rpm2} RPM`)
-      else set("fan2", "warn", `la DLL annonce ${fanCount} ventilateurs, mais le second n'a pas encore été confirmé`)
+        if (rpm2 === undefined) set("fan2", "skipped", t("diagnostic.details.fan2None"))
+        else set("fan2", "ok", t("diagnostic.details.fan2Detected", { rpm: rpm2 }))
+      } else if (fanCount < 0) set("fan2", "skipped", t("diagnostic.details.fan2Unknown"))
+      else if (fanCount <= 1) set("fan2", "ok", t("diagnostic.details.fanCountOne", { count: fanCount }))
+      else if (rpm2 !== undefined) set("fan2", "ok", t("diagnostic.details.fanCountSpinning", { count: fanCount, rpm: rpm2 }))
+      else set("fan2", "warn", t("diagnostic.details.fanCountUnconfirmed", { count: fanCount }))
 
       // 4. Service Windows
-      if (!isTauri) set("service", "skipped", "disponible uniquement dans l'application installée")
+      if (!isTauri) set("service", "skipped", t("diagnostic.details.serviceOnlyInstalled"))
       else {
         try {
           const state = await call<string>("service_status")
-          if (state === "running") set("service", "ok", "installé et en cours d'exécution")
-          else if (state === "stopped") set("service", "warn", "installé mais arrêté")
-          else set("service", "ok", "non installé : le contrôleur est lancé par l'application")
+          if (state === "running") set("service", "ok", t("diagnostic.details.serviceRunning"))
+          else if (state === "stopped") set("service", "warn", t("diagnostic.details.serviceStopped"))
+          else set("service", "ok", t("diagnostic.details.serviceNone"))
         } catch (e) {
           set("service", "warn", typeof e === "string" ? e : (e as Error).message)
         }
@@ -195,10 +189,10 @@ export function DiagnosticTab({ fan }: { fan: Fan }) {
 
       // 5. Test actif
       if (withActiveTest) await runActiveTest(signal)
-      else set("fan", "skipped", "test actif désactivé")
+      else set("fan", "skipped", t("diagnostic.details.activeDisabled"))
     } catch (e) {
       if (!(e instanceof Aborted)) throw e
-      setChecks((cs) => cs.map((c) => (c.state === "running" || c.state === "pending" ? { ...c, state: "skipped", detail: "annulé" } : c)))
+      setChecks((cs) => cs.map((c) => (c.state === "running" || c.state === "pending" ? { ...c, state: "skipped", detail: t("diagnostic.details.cancelled") } : c)))
     } finally {
       setRunning(false)
       abortRef.current = null
@@ -207,7 +201,7 @@ export function DiagnosticTab({ fan }: { fan: Fan }) {
 
   const copy = async () => {
     try {
-      await navigator.clipboard.writeText(buildReport(checks, fan))
+      await navigator.clipboard.writeText(buildReport(checks, fan, t, i18n.language))
       setCopied(true)
     } catch {
       /* presse-papiers refusé : l'utilisateur peut sélectionner la liste à la main */
@@ -218,42 +212,36 @@ export function DiagnosticTab({ fan }: { fan: Fan }) {
 
   return (
     <div className="flex flex-1 flex-col gap-4">
-      <InfoNote
-        summary={
-          <>
-          Le diagnostic vérifie que la chaîne complète fonctionne : le <b>contrôleur</b> répond, les <b>mesures</b> arrivent, la <b>température</b> est lisible et, si tu le souhaites, que le <b>ventilateur suit réellement une consigne</b>. À la fin, tu peux copier un rapport à joindre à une demande d'aide.
-          </>
-        }
-      >
-        Les trois premières vérifications sont passives et instantanées. Le <b>test actif</b> demande au ventilateur 30 % puis 80 % de puissance, attend à chaque fois que sa vitesse de rotation se stabilise (jusqu'à 12 secondes), compare les deux mesures, puis <b>restaure automatiquement</b> le mode d'origine, même si tu annules ou quittes la page. Il dure environ 25 secondes, et il est refusé si le processeur dépasse {ACTIVE_TEST_MAX_TEMP_C}° pour ne pas ralentir le refroidissement d'une machine déjà chaude. Les seuils de réussite (au moins {MIN_DELTA_OK_RPM} RPM d'écart entre 30 % et 80 %) sont indicatifs : un ventilateur très silencieux ou à faible plage peut afficher « Attention » sans être défectueux.
+      <InfoNote summary={<Trans i18nKey="diagnostic.summary" components={{ b: <b /> }} />}>
+        <Trans i18nKey="diagnostic.detailsNote" values={{ max: ACTIVE_TEST_MAX_TEMP_C, delta: MIN_DELTA_OK_RPM }} components={{ b: <b /> }} />
       </InfoNote>
 
       <Card>
         <CardHeader className="flex flex-row items-start justify-between gap-4">
           <div className="space-y-1.5">
-            <CardTitle className="text-xs">Vérifications</CardTitle>
-            <CardDescription>Lance le diagnostic puis lis le détail de chaque ligne.</CardDescription>
+            <CardTitle className="text-xs">{t("diagnostic.card.title")}</CardTitle>
+            <CardDescription>{t("diagnostic.card.subtitle")}</CardDescription>
           </div>
           <div className="flex gap-1.5">
             {running ? (
               <Button size="sm" variant="outline" onClick={() => abortRef.current?.abort()}>
-                <Square /> Annuler
+                <Square /> {t("diagnostic.card.cancel")}
               </Button>
             ) : (
               <Button size="sm" onClick={run}>
-                <Play /> Lancer
+                <Play /> {t("diagnostic.card.run")}
               </Button>
             )}
             <Button size="sm" variant="ghost" onClick={copy} disabled={!finished}>
-              <ClipboardCopy /> {copied ? "Copié" : "Copier le rapport"}
+              <ClipboardCopy /> {copied ? t("diagnostic.card.copied") : t("diagnostic.card.copy")}
             </Button>
           </div>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="flex items-center justify-between gap-4 rounded-none border p-3">
             <Label htmlFor="active-test" className="flex flex-col items-start gap-1">
-              <span className="font-medium">Inclure le test actif du ventilateur</span>
-              <span className="font-normal text-muted-foreground">Change temporairement la vitesse (30 % puis 80 %), puis la restaure.</span>
+              <span className="font-medium">{t("diagnostic.card.includeActive")}</span>
+              <span className="font-normal text-muted-foreground">{t("diagnostic.card.includeActiveHint")}</span>
             </Label>
             <Switch id="active-test" checked={withActiveTest} disabled={running} onCheckedChange={setWithActiveTest} />
           </div>
@@ -265,10 +253,10 @@ export function DiagnosticTab({ fan }: { fan: Fan }) {
                 <li key={c.id} className="flex items-start gap-3 p-3">
                   <Icon className={cn("mt-0.5 size-4 shrink-0", className)} />
                   <div className="min-w-0 flex-1">
-                    <div className="font-medium">{c.label}</div>
+                    <div className="font-medium">{t(`diagnostic.checks.${c.id}`)}</div>
                     {c.detail && <div className="text-muted-foreground">{c.detail}</div>}
                   </div>
-                  <span className="shrink-0 text-muted-foreground">{STATE_LABEL[c.state]}</span>
+                  <span className="shrink-0 text-muted-foreground">{t(`diagnostic.states.${c.state}`)}</span>
                 </li>
               )
             })}

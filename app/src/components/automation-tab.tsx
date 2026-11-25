@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react"
+import { useTranslation } from "react-i18next"
+import type { TFunction } from "i18next"
 import { AppWindow, ArrowDown, BatteryLow, ArrowUp, Battery, Check, Flame, Gauge, Leaf, Pencil, Plug, Plus, Rocket, Save, Scale, SlidersHorizontal, Trash2, TriangleAlert, X, Zap, type LucideIcon } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -15,14 +17,7 @@ import { api, type AppEntry, type AutomationConfig, type AutomationRule, type Au
 /** L'état observé (règle active, contexte) est relu à cette cadence : celle du moteur côté contrôleur. */
 const STATE_REFRESH_MS = 5_000
 
-const TRIGGER_LABELS: Record<AutomationTrigger, string> = {
-  process: "Un programme est lancé",
-  power_source: "La source d'alimentation est",
-  power_plan: "Le plan d'alimentation est",
-  battery_below: "Le niveau de batterie est sous",
-}
 const TRIGGER_ICONS: Record<AutomationTrigger, LucideIcon> = { process: AppWindow, power_source: Plug, power_plan: Gauge, battery_below: BatteryLow }
-const SOURCE_LABELS: Record<string, string> = { ac: "Le secteur", battery: "La batterie" }
 const SOURCE_ICONS: Record<string, LucideIcon> = { ac: Plug, battery: Battery }
 /** Un plan inconnu (renommé, ajouté par le constructeur) retombe sur « Personnalisé ». */
 const PLAN_ICONS: Record<string, LucideIcon> = {
@@ -32,6 +27,9 @@ const PLAN_ICONS: Record<string, LucideIcon> = {
   "Économie d'énergie": Leaf,
   "Personnalisé": SlidersHorizontal,
 }
+
+/** Libellé traduit d'un plan d'alimentation (le contrôleur envoie des noms français : repli sur le nom brut). */
+const planName = (t: TFunction, plan: string) => t(`control.powerPlan.plans.${plan}`, { defaultValue: plan })
 
 /** Valeur par défaut d'un déclencheur quand on en change : une valeur d'un autre type serait refusée par le contrôleur. */
 function defaultValue(trigger: AutomationTrigger, plans: string[]): string {
@@ -53,10 +51,10 @@ function isConditionMet(rule: AutomationRule, state: AutomationState, apps: AppE
 }
 
 /** Ce qui empêche la règle de fonctionner, en une phrase (null = rien). Le contrôleur la refuserait de toute façon à l'enregistrement. */
-function ruleProblem(rule: AutomationRule, profiles: FanProfile[]): string | null {
-  if (rule.trigger === "process" && !rule.value.trim()) return "Choisis le programme à surveiller."
-  if (rule.trigger === "battery_below" && !(Number(rule.value) >= 1 && Number(rule.value) <= 99)) return "Indique un niveau entre 1 et 99 %."
-  if (!profiles.some((p) => p.id === rule.profile)) return "Le profil choisi n'existe plus : choisis-en un autre."
+function ruleProblem(rule: AutomationRule, profiles: FanProfile[], t: TFunction): string | null {
+  if (rule.trigger === "process" && !rule.value.trim()) return t("automation.problems.noProcess")
+  if (rule.trigger === "battery_below" && !(Number(rule.value) >= 1 && Number(rule.value) <= 99)) return t("automation.problems.badLevel")
+  if (!profiles.some((p) => p.id === rule.profile)) return t("automation.problems.noProfile")
   return null
 }
 
@@ -75,45 +73,46 @@ function Part({ icon: leading, children }: { icon: ReactNode; children: ReactNod
 
 /** Phrase décrivant une règle enregistrée, avec les icônes de ses éléments : c'est ce que l'on lit tant qu'on ne la modifie pas. */
 function RuleSentence({ rule, profiles }: { rule: AutomationRule; profiles: FanProfile[] }) {
+  const { t } = useTranslation()
   const profile = profiles.find((p) => p.id === rule.profile)
   return (
     <p className="flex flex-wrap items-center gap-x-1.5 gap-y-1">
-      <span>Quand</span>
+      <span>{t("automation.sentence.when")}</span>
       {rule.trigger === "process" && (
         <>
           <Part icon={<AppIcon name={rule.value} />}>
-            <span className="font-mono">{rule.value || "un programme"}</span>
+            <span className="font-mono">{rule.value || t("automation.sentence.aProgram")}</span>
           </Part>
-          <span>est lancé,</span>
+          <span>{t("automation.sentence.started")}</span>
         </>
       )}
       {rule.trigger === "power_source" && (
         <>
-          <span>la machine est sur</span>
-          <Part icon={icon(SOURCE_ICONS[rule.value] ?? Plug)}>{rule.value === "battery" ? "batterie" : "secteur"}</Part>
+          <span>{t("automation.sentence.machineOn")}</span>
+          <Part icon={icon(SOURCE_ICONS[rule.value] ?? Plug)}>{rule.value === "battery" ? t("automation.sentence.batteryWord") : t("automation.sentence.acWord")}</Part>
           <span className="-ml-1.5">,</span>
         </>
       )}
       {rule.trigger === "battery_below" && (
         <>
-          <span>la batterie passe sous</span>
+          <span>{t("automation.sentence.batteryUnder")}</span>
           <Part icon={icon(BatteryLow)}>{rule.value} %</Part>
           <span className="-ml-1.5">,</span>
         </>
       )}
       {rule.trigger === "power_plan" && (
         <>
-          <span>le plan d'alimentation est</span>
-          <Part icon={icon(PLAN_ICONS[rule.value] ?? SlidersHorizontal)}>{rule.value}</Part>
+          <span>{t("automation.sentence.planIs")}</span>
+          <Part icon={icon(PLAN_ICONS[rule.value] ?? SlidersHorizontal)}>{planName(t, rule.value)}</Part>
           <span className="-ml-1.5">,</span>
         </>
       )}
-      <span>utiliser le profil</span>
-      <Part icon={<ProfileIcon name={profile?.icon} className="size-4 text-muted-foreground" />}>{profile?.name ?? "profil supprimé"}</Part>
+      <span>{t("automation.sentence.useProfile")}</span>
+      <Part icon={<ProfileIcon name={profile?.icon} className="size-4 text-muted-foreground" />}>{profile?.name ?? t("automation.sentence.deletedProfile")}</Part>
       {rule.plan && (
         <>
-          <span>et le plan</span>
-          <Part icon={icon(PLAN_ICONS[rule.plan] ?? SlidersHorizontal)}>{rule.plan}</Part>
+          <span>{t("automation.sentence.andPlan")}</span>
+          <Part icon={icon(PLAN_ICONS[rule.plan] ?? SlidersHorizontal)}>{planName(t, rule.plan)}</Part>
         </>
       )}
       <span className="-ml-1.5">.</span>
@@ -146,9 +145,10 @@ function RuleRow({ rule, index, count, profiles, state, apps, isEditing, isNew, 
   onCancel: () => void
   onDelete: () => void
 }) {
+  const { t } = useTranslation()
   const isActive = rule.id === state.active_rule_id
   const isMet = isConditionMet(rule, state, apps)
-  const problem = ruleProblem(rule, profiles)
+  const problem = ruleProblem(rule, profiles, t)
   const profileOptions = profiles.map((p) => ({ value: p.id, label: p.name, icon: <ProfileIcon name={p.icon} className="size-4 text-muted-foreground" /> }))
 
   return (
@@ -156,59 +156,59 @@ function RuleRow({ rule, index, count, profiles, state, apps, isEditing, isNew, 
       <div className="flex items-center gap-3 p-2">
         <span
           className="flex size-6 shrink-0 items-center justify-center bg-muted font-mono font-semibold text-muted-foreground"
-          title={`Priorité ${index + 1} : les règles sont examinées de haut en bas`}
+          title={t("automation.row.priority", { n: index + 1 })}
         >
           {index + 1}
         </span>
         {isEditing ? (
           <Input
             value={rule.name}
-            placeholder="Nom de la règle"
+            placeholder={t("automation.row.namePlaceholder")}
             className="h-7 flex-1 font-medium"
             onChange={(e) => onChange({ name: e.target.value })}
           />
         ) : (
-          <span className={cn("flex-1 truncate font-medium", !rule.enabled && "text-muted-foreground")}>{rule.name || "Règle sans nom"}</span>
+          <span className={cn("flex-1 truncate font-medium", !rule.enabled && "text-muted-foreground")}>{rule.name || t("automation.row.noName")}</span>
         )}
         {!isEditing && isActive && (
           <span className="flex shrink-0 items-center gap-1 rounded-full bg-primary/15 px-2 py-0.5 font-medium text-foreground">
-            <Zap className="size-3" /> Appliquée
+            <Zap className="size-3" /> {t("automation.row.applied")}
           </span>
         )}
         {!isEditing && !isActive && isMet && rule.enabled && (
           <span
             className="flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-muted-foreground ring-1 ring-border"
-            title="La condition est vraie en ce moment, mais la règle n'est pas appliquée : l'automatisation est désactivée, ou une règle plus prioritaire s'applique."
+            title={t("automation.row.metHint")}
           >
-            <Check className="size-3" /> Condition remplie
+            <Check className="size-3" /> {t("automation.row.met")}
           </span>
         )}
-        {!isEditing && !isNew && <Switch checked={rule.enabled} onCheckedChange={onToggle} aria-label="Activer la règle" />}
+        {!isEditing && !isNew && <Switch checked={rule.enabled} onCheckedChange={onToggle} aria-label={t("automation.row.toggle")} />}
         <div className="flex items-center">
           {!isEditing && !isNew && (
             <>
-              <Button size="icon-sm" variant="ghost" disabled={index === 0} onClick={() => onMove(-1)} aria-label="Monter (plus prioritaire)">
+              <Button size="icon-sm" variant="ghost" disabled={index === 0} onClick={() => onMove(-1)} aria-label={t("automation.row.up")}>
                 <ArrowUp />
               </Button>
-              <Button size="icon-sm" variant="ghost" disabled={index === count - 1} onClick={() => onMove(1)} aria-label="Descendre">
+              <Button size="icon-sm" variant="ghost" disabled={index === count - 1} onClick={() => onMove(1)} aria-label={t("automation.row.down")}>
                 <ArrowDown />
               </Button>
-              <Button size="icon-sm" variant="ghost" onClick={onEdit} aria-label="Modifier la règle" title="Modifier">
+              <Button size="icon-sm" variant="ghost" onClick={onEdit} aria-label={t("automation.row.editAria")} title={t("automation.row.edit")}>
                 <Pencil />
               </Button>
             </>
           )}
           {isEditing && (
             <>
-              <Button size="icon-sm" variant="ghost" disabled={!!problem || !isDirty} onClick={onSave} aria-label="Enregistrer la règle" title="Enregistrer">
+              <Button size="icon-sm" variant="ghost" disabled={!!problem || !isDirty} onClick={onSave} aria-label={t("automation.row.saveAria")} title={t("automation.row.save")}>
                 <Save />
               </Button>
-              <Button size="icon-sm" variant="ghost" onClick={onCancel} aria-label="Annuler les modifications" title="Annuler">
+              <Button size="icon-sm" variant="ghost" onClick={onCancel} aria-label={t("automation.row.cancelAria")} title={t("automation.row.cancel")}>
                 <X />
               </Button>
             </>
           )}
-          <Button size="icon-sm" variant="ghost" onClick={onDelete} aria-label="Supprimer la règle" title="Supprimer">
+          <Button size="icon-sm" variant="ghost" onClick={onDelete} aria-label={t("automation.row.deleteAria")} title={t("automation.row.delete")}>
             <Trash2 />
           </Button>
         </div>
@@ -218,12 +218,12 @@ function RuleRow({ rule, index, count, profiles, state, apps, isEditing, isNew, 
         <div className="space-y-2.5 border-t p-3">
           {/* Une seule ligne : chaque liste se partage la largeur et tronque son texte plutôt que de passer à la ligne. */}
           <div className="flex items-center gap-2">
-            <span className={LABEL_CLASS}>Quand</span>
+            <span className={LABEL_CLASS}>{t("automation.row.whenLabel")}</span>
             <Choice
               className="min-w-0 flex-1"
               value={rule.trigger}
-              options={(Object.keys(TRIGGER_LABELS) as AutomationTrigger[]).map((t) => ({ value: t, label: TRIGGER_LABELS[t], icon: icon(TRIGGER_ICONS[t]) }))}
-              onChange={(t) => onChange({ trigger: t as AutomationTrigger, value: defaultValue(t as AutomationTrigger, state.plans) })}
+              options={(Object.keys(TRIGGER_ICONS) as AutomationTrigger[]).map((trg) => ({ value: trg, label: t(`automation.triggers.${trg}`), icon: icon(TRIGGER_ICONS[trg]) }))}
+              onChange={(v) => onChange({ trigger: v as AutomationTrigger, value: defaultValue(v as AutomationTrigger, state.plans) })}
             />
             {rule.trigger === "process" && (
               <AppPicker className="min-w-0 flex-1" value={rule.value} apps={apps} onOpen={onOpenPicker} onChange={(name) => onChange({ value: name })} />
@@ -232,7 +232,7 @@ function RuleRow({ rule, index, count, profiles, state, apps, isEditing, isNew, 
               <Choice
                 className="min-w-0 flex-1"
                 value={rule.value}
-                options={Object.entries(SOURCE_LABELS).map(([value, label]) => ({ value, label, icon: icon(SOURCE_ICONS[value]) }))}
+                options={Object.keys(SOURCE_ICONS).map((value) => ({ value, label: t(`automation.sources.${value}`), icon: icon(SOURCE_ICONS[value]) }))}
                 onChange={(v) => onChange({ value: v })}
               />
             )}
@@ -253,21 +253,21 @@ function RuleRow({ rule, index, count, profiles, state, apps, isEditing, isNew, 
               <Choice
                 className="min-w-0 flex-1"
                 value={rule.value}
-                options={state.plans.map((p) => ({ value: p, label: p, icon: icon(PLAN_ICONS[p] ?? SlidersHorizontal) }))}
+                options={state.plans.map((p) => ({ value: p, label: planName(t, p), icon: icon(PLAN_ICONS[p] ?? SlidersHorizontal) }))}
                 onChange={(v) => onChange({ value: v })}
               />
             )}
-            <span className={cn(LABEL_CLASS, "w-auto pl-1")}>Alors</span>
+            <span className={cn(LABEL_CLASS, "w-auto pl-1")}>{t("automation.row.thenLabel")}</span>
             <Choice className="min-w-0 flex-1" value={rule.profile} options={profileOptions} onChange={(v) => onChange({ profile: v })} />
           </div>
           <div className="flex items-center gap-2">
-            <span className={LABEL_CLASS}>Et</span>
+            <span className={LABEL_CLASS}>{t("automation.row.andLabel")}</span>
             <Choice
               className="w-64"
               value={rule.plan ?? ""}
               options={[
-                { value: "", label: "Ne pas toucher au plan d'alimentation", icon: icon(Gauge) },
-                ...state.plans.filter((p) => p !== "Personnalisé").map((p) => ({ value: p, label: `Plan ${p}`, icon: icon(PLAN_ICONS[p] ?? SlidersHorizontal) })),
+                { value: "", label: t("automation.row.keepPlan"), icon: icon(Gauge) },
+                ...state.plans.filter((p) => p !== "Personnalisé").map((p) => ({ value: p, label: t("automation.row.planOption", { plan: planName(t, p) }), icon: icon(PLAN_ICONS[p] ?? SlidersHorizontal) })),
               ]}
               onChange={(v) => onChange({ plan: v })}
             />
@@ -290,6 +290,7 @@ function RuleRow({ rule, index, count, profiles, state, apps, isEditing, isNew, 
 
 /** Automatisation : change de profil selon un programme lancé, la source d'alimentation ou le plan d'alimentation Windows. */
 export function AutomationTab({ profiles }: { profiles: FanProfile[] }) {
+  const { t } = useTranslation()
   const polled = usePolled(api.automation, STATE_REFRESH_MS)
   // État du contrôleur : la relecture périodique, remplacée tout de suite par la réponse de chaque enregistrement.
   const [state, setState] = useState<AutomationState | null>(null)
@@ -324,8 +325,8 @@ export function AutomationTab({ profiles }: { profiles: FanProfile[] }) {
     return (
       <Card>
         <CardHeader>
-          <CardTitle className="text-xs">Automatisation</CardTitle>
-          <CardDescription>Lecture en cours… Si cela dure, le contrôleur est peut-être trop ancien pour cette fonction.</CardDescription>
+          <CardTitle className="text-xs">{t("automation.page.title")}</CardTitle>
+          <CardDescription>{t("automation.page.loading")}</CardDescription>
         </CardHeader>
       </Card>
     )
@@ -350,7 +351,7 @@ export function AutomationTab({ profiles }: { profiles: FanProfile[] }) {
 
   const add = () => {
     const id = crypto.randomUUID()
-    const rule: AutomationRule = { id, name: `Règle ${rules.length + 1}`, enabled: true, trigger: "process", value: "", profile: profiles[0]?.id ?? "" }
+    const rule: AutomationRule = { id, name: t("automation.page.defaultName", { n: rules.length + 1 }), enabled: true, trigger: "process", value: "", profile: profiles[0]?.id ?? "" }
     setDrafts((d) => ({ ...d, [id]: rule }))
     setNewIds((ids) => [...ids, id])
   }
@@ -384,39 +385,37 @@ export function AutomationTab({ profiles }: { profiles: FanProfile[] }) {
     <div className="flex flex-1 flex-col gap-4">
       <Card>
         <CardHeader>
-          <CardTitle className="text-xs">Automatisation</CardTitle>
-          <CardDescription>
-            Change de profil tout seul selon le contexte. Les règles sont examinées dans l'ordre : la première qui correspond s'applique. Quand plus aucune ne correspond, le profil que tu utilisais avant revient, sauf si tu en as choisi un autre entre-temps. Le profil posé par une règle est temporaire : il n'est pas mémorisé pour le prochain démarrage. Le contrôleur évalue les règles toutes les 5 secondes, même interface fermée.
-          </CardDescription>
+          <CardTitle className="text-xs">{t("automation.page.title")}</CardTitle>
+          <CardDescription>{t("automation.page.description")}</CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">
           <div className="flex items-center justify-between gap-4 rounded-none border p-3">
             <Label htmlFor="auto-enabled" className="flex flex-col items-start gap-1">
-              <span className="font-medium">Activer l'automatisation</span>
+              <span className="font-medium">{t("automation.page.enable")}</span>
               <span className="font-normal text-muted-foreground">
                 {activeRule
-                  ? `Règle appliquée : ${activeRule.name}${baseName ? ` (retour à « ${baseName} » ensuite)` : ""}`
-                  : "Aucune règle ne s'applique en ce moment."}
+                  ? `${t("automation.page.active", { name: activeRule.name })}${baseName ? t("automation.page.activeBack", { profile: baseName }) : ""}`
+                  : t("automation.page.none")}
               </span>
             </Label>
             <Switch id="auto-enabled" checked={state.enabled} onCheckedChange={(v) => commit({ enabled: v, rules: savedRules })} />
           </div>
           <p className="text-muted-foreground">
-            Vu par le contrôleur : {state.on_battery ? "sur batterie" : "sur secteur"}
-            {state.power_plan && ` · plan « ${state.power_plan} »`}
+            {t("automation.page.seen", { source: state.on_battery ? t("automation.page.seenBattery") : t("automation.page.seenAc") })}
+            {state.power_plan && t("automation.page.seenPlan", { plan: planName(t, state.power_plan) })}
           </p>
         </CardContent>
       </Card>
 
       <Card className="flex-1">
         <CardHeader className="flex flex-row items-center justify-between gap-4">
-          <CardTitle className="text-xs">Règles</CardTitle>
+          <CardTitle className="text-xs">{t("automation.page.rules")}</CardTitle>
           <Button size="sm" variant="outline" onClick={add}>
-            <Plus /> Ajouter une règle
+            <Plus /> {t("automation.page.add")}
           </Button>
         </CardHeader>
         <CardContent className="space-y-3">
-          {rules.length === 0 && <p className="text-muted-foreground">Aucune règle. Ajoute-en une, par exemple « un programme est lancé : jeu.exe → Turbo ».</p>}
+          {rules.length === 0 && <p className="text-muted-foreground">{t("automation.page.empty")}</p>}
           {rules.map((saved, i) => {
             const draft = drafts[saved.id]
             const isNew = newIds.includes(saved.id)

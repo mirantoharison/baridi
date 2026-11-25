@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react"
 import { AlertTriangle } from "lucide-react"
+import { Trans, useTranslation } from "react-i18next"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Label } from "@/components/ui/label"
 import { Switch } from "@/components/ui/switch"
@@ -7,17 +8,9 @@ import { call, isTauri } from "@/lib/tauri"
 
 type ServiceState = "not-installed" | "stopped" | "running"
 
-const STATE_TEXT: Record<ServiceState, string> = {
-  "not-installed":
-    "Le service n'est pas installé : le contrôleur est lancé par l'application, ne pilote le ventilateur que tant qu'elle est ouverte (réduite dans la zone de notification ou non) et s'arrête quand tu la quittes réellement avec « Quitter ».",
-  running:
-    "Le service est installé et en cours d'exécution : le ventilateur est piloté dès le démarrage de Windows et reste piloté même si l'application est fermée.",
-  stopped:
-    "Le service est installé mais arrêté. Il démarrera automatiquement au prochain redémarrage de Windows.",
-}
-
 /** Installe ou supprime le service Windows « FanControllerCore » qui exécute le contrôleur Go. */
 export function ServiceCard() {
+  const { t } = useTranslation()
   const [state, setState] = useState<ServiceState | null>(null)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -50,23 +43,23 @@ export function ServiceCard() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-xs">Service Windows</CardTitle>
+        <CardTitle className="text-xs">{t("config.service.title")}</CardTitle>
         <CardDescription>
-          Installe le contrôleur comme un <b className="text-foreground">vrai service Windows</b> nommé « FanControllerCore », qui démarre avec la machine, avant même l'ouverture de ta session, et s'exécute directement avec le compte système : la fenêtre n'a plus besoin d'être ouverte pour que le ventilateur suive la courbe de ton profil actif, et il n'y a plus de demande de confirmation Windows au démarrage. Le service redémarre tout seul s'il plante (après 5 secondes la première fois, puis 15, puis 60), reprend en mode Auto avec le dernier profil et le dernier mode de courbe utilisés, suspend le pilotage quand l'ordinateur se met en veille et le relance au réveil, et remet le ventilateur sur le profil Balanced quand Windows s'éteint. Il n'écoute que sur ta propre machine (127.0.0.1) et n'accepte que les requêtes venant de l'application ; il ne peut pas être arrêté depuis celle-ci par une simple fermeture. L'application se connecte à lui au lieu de lancer son propre contrôleur : la fermer ou la réduire dans la zone de notification ne change rien au pilotage. Activer l'option arrête d'abord le contrôleur de l'application, installe le service puis le démarre ; la désactiver arrête et supprime le service, puis l'application reprend son propre contrôleur. L'installation et la suppression demandent les droits administrateur. Le service pointe vers l'emplacement actuel de l'application : si tu la déplaces ou la réinstalles ailleurs, désactive puis réactive l'option pour qu'il pointe vers le nouvel emplacement. Tu peux aussi le voir ou l'arrêter à la main dans la console « Services » de Windows, sous le nom « Baridi - Fancontroller Core ».
+          <Trans i18nKey="config.service.description" components={{ b: <b className="text-foreground" /> }} />
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-3">
         <div className="flex items-center justify-between gap-4 rounded-none border p-3">
           <Label htmlFor="service" className="flex flex-col items-start gap-1">
-            <span className="font-medium">Exécuter le contrôleur comme service Windows</span>
+            <span className="font-medium">{t("config.service.label")}</span>
             <span className="font-normal text-muted-foreground">
               {!isTauri
-                ? "Disponible uniquement dans l'application installée."
+                ? t("config.onlyInstalled")
                 : busy
-                  ? "Opération en cours, cela peut prendre quelques secondes…"
+                  ? t("config.service.busy")
                   : state === null
-                    ? "Lecture de l'état du service…"
-                    : STATE_TEXT[state]}
+                    ? t("config.service.reading")
+                    : t(`config.service.state.${state}`)}
             </span>
           </Label>
           <Switch

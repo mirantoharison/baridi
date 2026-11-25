@@ -1,4 +1,5 @@
 import type { KeyboardEvent } from "react"
+import { Trans, useTranslation } from "react-i18next"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -32,6 +33,7 @@ function ShortcutField({ id, label, value, disabled, onChange }: {
   disabled: boolean
   onChange: (accelerator: string) => void
 }) {
+  const { t } = useTranslation()
   return (
     <div className="flex items-center justify-between gap-4">
       <Label htmlFor={id} className="font-normal">{label}</Label>
@@ -40,7 +42,7 @@ function ShortcutField({ id, label, value, disabled, onChange }: {
         readOnly
         disabled={disabled}
         value={value}
-        title="Clique puis appuie sur la combinaison voulue (avec Ctrl, Alt, Shift ou Win)"
+        title={t("config.shortcuts.fieldHint")}
         className="w-44 text-center font-mono"
         onKeyDown={(e) => {
           // On laisse Tab passer pour ne pas piéger la navigation clavier.
@@ -56,37 +58,38 @@ function ShortcutField({ id, label, value, disabled, onChange }: {
 
 /** Raccourcis clavier globaux. Préférences stockées côté interface (AppData). */
 export function ShortcutsCard() {
+  const { t } = useTranslation()
   const { shortcuts } = usePrefs()
 
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-xs">Raccourcis clavier globaux</CardTitle>
+        <CardTitle className="text-xs">{t("config.shortcuts.title")}</CardTitle>
         <CardDescription>
-          Les raccourcis fonctionnent depuis <b className="text-foreground">n'importe quelle application</b> tant que l'interface est ouverte, fenêtre réduite dans la zone de notification incluse. Une combinaison doit contenir au moins un modificateur (Ctrl, Alt, Shift ou Win), sans quoi elle volerait la touche à toutes les autres applications. Si une combinaison est déjà prise par un autre programme, elle ne sera simplement pas enregistrée : l'autre raccourci reste actif. Ces préférences sont enregistrées dans un fichier de l'interface, indépendant du contrôleur.
+          <Trans i18nKey="config.shortcuts.description" components={{ b: <b className="text-foreground" /> }} />
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-3">
-        {!isTauri && <p className="text-muted-foreground">Les raccourcis globaux ne fonctionnent que dans l'application installée.</p>}
+        {!isTauri && <p className="text-muted-foreground">{t("config.shortcuts.onlyInstalled")}</p>}
 
         <div className="space-y-3 rounded-none border p-3">
           <div className="flex items-center justify-between gap-4">
             <Label htmlFor="shortcuts-enabled" className="flex flex-col items-start gap-1">
-              <span className="font-medium">Activer les raccourcis</span>
-              <span className="font-normal text-muted-foreground">Clique dans un champ puis appuie sur la combinaison voulue.</span>
+              <span className="font-medium">{t("config.shortcuts.enable")}</span>
+              <span className="font-normal text-muted-foreground">{t("config.shortcuts.enableHint")}</span>
             </Label>
             <Switch id="shortcuts-enabled" checked={shortcuts.enabled} onCheckedChange={(v) => updatePrefs("shortcuts", { enabled: v })} />
           </div>
           <ShortcutField
             id="shortcut-next"
-            label="Profil suivant"
+            label={t("config.shortcuts.next")}
             value={shortcuts.nextProfile}
             disabled={!shortcuts.enabled}
             onChange={(a) => updatePrefs("shortcuts", { nextProfile: a })}
           />
           <ShortcutField
             id="shortcut-full"
-            label="Plein régime (100 % ↔ Auto)"
+            label={t("config.shortcuts.full")}
             value={shortcuts.toggleFull}
             disabled={!shortcuts.enabled}
             onChange={(a) => updatePrefs("shortcuts", { toggleFull: a })}

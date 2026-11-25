@@ -1,0 +1,123 @@
+/** Textes de la configuration : raccourcis, service Windows, démarrage avec Windows et alertes. */
+export const config = {
+  fr: {
+    onlyInstalled: "Disponible uniquement dans l'application installée.",
+    shortcuts: {
+      title: "Raccourcis clavier globaux",
+      description:
+        "Les raccourcis fonctionnent depuis <b>n'importe quelle application</b> tant que l'interface est ouverte, fenêtre réduite dans la zone de notification incluse. Une combinaison doit contenir au moins un modificateur (Ctrl, Alt, Shift ou Win), sans quoi elle volerait la touche à toutes les autres applications. Si une combinaison est déjà prise par un autre programme, elle ne sera simplement pas enregistrée : l'autre raccourci reste actif. Ces préférences sont enregistrées dans un fichier de l'interface, indépendant du contrôleur.",
+      onlyInstalled: "Les raccourcis globaux ne fonctionnent que dans l'application installée.",
+      enable: "Activer les raccourcis",
+      enableHint: "Clique dans un champ puis appuie sur la combinaison voulue.",
+      fieldHint: "Clique puis appuie sur la combinaison voulue (avec Ctrl, Alt, Shift ou Win)",
+      next: "Profil suivant",
+      full: "Plein régime (100 % ↔ Auto)",
+    },
+    service: {
+      title: "Service Windows",
+      description:
+        "Installe le contrôleur comme un <b>vrai service Windows</b> nommé « FanControllerCore », qui démarre avec la machine, avant même l'ouverture de ta session, et s'exécute directement avec le compte système : la fenêtre n'a plus besoin d'être ouverte pour que le ventilateur suive la courbe de ton profil actif, et il n'y a plus de demande de confirmation Windows au démarrage. Le service redémarre tout seul s'il plante (après 5 secondes la première fois, puis 15, puis 60), reprend en mode Auto avec le dernier profil et le dernier mode de courbe utilisés, suspend le pilotage quand l'ordinateur se met en veille et le relance au réveil, et remet le ventilateur sur le profil Balanced quand Windows s'éteint. Il n'écoute que sur ta propre machine (127.0.0.1) et n'accepte que les requêtes venant de l'application ; il ne peut pas être arrêté depuis celle-ci par une simple fermeture. L'application se connecte à lui au lieu de lancer son propre contrôleur : la fermer ou la réduire dans la zone de notification ne change rien au pilotage. Activer l'option arrête d'abord le contrôleur de l'application, installe le service puis le démarre ; la désactiver arrête et supprime le service, puis l'application reprend son propre contrôleur. L'installation et la suppression demandent les droits administrateur. Le service pointe vers l'emplacement actuel de l'application : si tu la déplaces ou la réinstalles ailleurs, désactive puis réactive l'option pour qu'il pointe vers le nouvel emplacement. Tu peux aussi le voir ou l'arrêter à la main dans la console « Services » de Windows, sous le nom « Baridi - Fancontroller Core ».",
+      label: "Exécuter le contrôleur comme service Windows",
+      busy: "Opération en cours, cela peut prendre quelques secondes…",
+      reading: "Lecture de l'état du service…",
+      state: {
+        "not-installed": "Le service n'est pas installé : le contrôleur est lancé par l'application, ne pilote le ventilateur que tant qu'elle est ouverte (réduite dans la zone de notification ou non) et s'arrête quand tu la quittes réellement avec « Quitter ».",
+        running: "Le service est installé et en cours d'exécution : le ventilateur est piloté dès le démarrage de Windows et reste piloté même si l'application est fermée.",
+        stopped: "Le service est installé mais arrêté. Il démarrera automatiquement au prochain redémarrage de Windows.",
+      },
+    },
+    autostart: {
+      title: "Démarrage de l'interface avec Windows",
+      description:
+        "Le service Windows démarre le contrôleur tout seul, mais l'<b>interface</b> (la fenêtre et l'icône de la zone de notification) reste une application ordinaire qu'il faut lancer. Cette option crée une <b>tâche planifiée</b> nommée « BaridiFancontroller » qui ouvre l'application automatiquement dix secondes après l'ouverture de ta session, directement réduite dans la zone de notification : elle n'affiche aucune fenêtre tant que tu ne cliques pas sur son icône. La tâche s'exécute avec les privilèges les plus élevés, car l'application les exige, ce qui évite la demande de confirmation Windows à chaque démarrage, et elle est autorisée à démarrer même quand l'ordinateur fonctionne sur batterie. Elle est indépendante du service : tu peux garder l'un sans l'autre. Désactiver l'option supprime simplement la tâche ; rien d'autre n'est modifié sur ta machine. Comme pour le service, si tu déplaces l'application, désactive puis réactive l'option pour que la tâche pointe vers le nouvel emplacement. La création et la suppression de la tâche demandent les droits administrateur.",
+      label: "Ouvrir l'interface avec Windows",
+      busy: "Opération en cours…",
+      reading: "Lecture de l'état de la tâche…",
+      on: "La tâche planifiée existe : l'interface s'ouvrira, réduite, à ta prochaine connexion.",
+      off: "Aucune tâche planifiée : l'interface ne s'ouvre pas toute seule.",
+    },
+    alerts: {
+      title: "Alertes de température",
+      description:
+        "Les alertes envoient une <b>notification Windows</b> quand la température du processeur franchit un seuil, même si la fenêtre est réduite dans la zone de notification : une seule notification par franchissement, puis le seuil n'est réarmé qu'une fois la température redescendue de 5° en dessous, pour ne pas t'envoyer de message en boucle quand elle oscille autour de la limite. Ces préférences sont enregistrées dans un fichier de l'interface, indépendant du contrôleur.",
+      onlyInstalled: "Les notifications ne fonctionnent que dans l'application installée.",
+      enable: "Activer les alertes",
+      enableHint: "Notification quand un seuil est franchi.",
+      warn: "Seuil « Température élevée »",
+      critical: "Seuil « Température critique »",
+      disconnect: "Prévenir si le contrôleur ne répond plus",
+      disconnectHint: "Le ventilateur garde sa dernière vitesse tant qu'il est injoignable.",
+      gpu: "Alertes de la carte graphique",
+      gpuHint: "Mêmes notifications, avec des seuils à part. Une carte endormie n'en déclenche aucune.",
+      gpuWarn: "Seuil « Température élevée » (carte)",
+      gpuCritical: "Seuil « Température critique » (carte)",
+      snooze: "Mettre en pause",
+      snoozeText: "Coupe temporairement les notifications « Température élevée » et celles du contrôleur, par exemple pendant une partie ou une compilation qui fait chauffer volontairement. <b>L'alerte « critique » n'est jamais mise en pause.</b>",
+      snoozeRemaining: "En pause encore {{minutes}} min",
+      resume: "Reprendre",
+      m30: "30 min",
+      h1: "1 h",
+      h2: "2 h",
+    },
+  },
+  en: {
+    onlyInstalled: "Only available in the installed application.",
+    shortcuts: {
+      title: "Global keyboard shortcuts",
+      description:
+        "Shortcuts work from <b>any application</b> as long as the interface is open, including when the window is minimized to the notification area. A combination must contain at least one modifier (Ctrl, Alt, Shift or Win), otherwise it would steal the key from every other application. If a combination is already taken by another program, it simply will not be registered: the other shortcut stays active. These preferences are saved in an interface file, independent of the controller.",
+      onlyInstalled: "Global shortcuts only work in the installed application.",
+      enable: "Enable shortcuts",
+      enableHint: "Click in a field then press the desired combination.",
+      fieldHint: "Click then press the desired combination (with Ctrl, Alt, Shift or Win)",
+      next: "Next profile",
+      full: "Full speed (100 % ↔ Auto)",
+    },
+    service: {
+      title: "Windows service",
+      description:
+        "Installs the controller as a <b>real Windows service</b> named “FanControllerCore”, which starts with the machine, even before you log in, and runs directly under the system account: the window no longer needs to be open for the fan to follow your active profile's curve, and there is no more Windows confirmation prompt at startup. The service restarts by itself if it crashes (after 5 seconds the first time, then 15, then 60), resumes in Auto mode with the last profile and curve mode used, suspends control when the computer goes to sleep and resumes it on wake-up, and puts the fan back on the Balanced profile when Windows shuts down. It only listens on your own machine (127.0.0.1) and only accepts requests from the application; it cannot be stopped from it by a simple close. The application connects to it instead of launching its own controller: closing it or minimizing it to the notification area changes nothing about the control. Enabling the option first stops the application's controller, installs the service then starts it; disabling it stops and removes the service, then the application takes back its own controller. Installing and removing require administrator rights. The service points to the application's current location: if you move or reinstall it elsewhere, disable then re-enable the option so that it points to the new location. You can also see or stop it by hand in the Windows “Services” console, under the name “Baridi - Fancontroller Core”.",
+      label: "Run the controller as a Windows service",
+      busy: "Operation in progress, this may take a few seconds…",
+      reading: "Reading the service state…",
+      state: {
+        "not-installed": "The service is not installed: the controller is launched by the application, only controls the fan while it is open (minimized to the notification area or not) and stops when you really quit it with “Quit”.",
+        running: "The service is installed and running: the fan is controlled from Windows startup and stays controlled even if the application is closed.",
+        stopped: "The service is installed but stopped. It will start automatically at the next Windows restart.",
+      },
+    },
+    autostart: {
+      title: "Start the interface with Windows",
+      description:
+        "The Windows service starts the controller by itself, but the <b>interface</b> (the window and the notification area icon) remains an ordinary application that has to be launched. This option creates a <b>scheduled task</b> named “BaridiFancontroller” that opens the application automatically ten seconds after you log in, directly minimized to the notification area: it shows no window until you click its icon. The task runs with the highest privileges, because the application requires them, which avoids the Windows confirmation prompt at every startup, and it is allowed to start even when the computer is running on battery. It is independent of the service: you can keep one without the other. Disabling the option simply removes the task; nothing else is changed on your machine. As with the service, if you move the application, disable then re-enable the option so that the task points to the new location. Creating and removing the task require administrator rights.",
+      label: "Open the interface with Windows",
+      busy: "Operation in progress…",
+      reading: "Reading the task state…",
+      on: "The scheduled task exists: the interface will open, minimized, at your next login.",
+      off: "No scheduled task: the interface does not open by itself.",
+    },
+    alerts: {
+      title: "Temperature alerts",
+      description:
+        "Alerts send a <b>Windows notification</b> when the processor temperature crosses a threshold, even if the window is minimized to the notification area: a single notification per crossing, then the threshold is only re-armed once the temperature has dropped 5° below it, so you do not get messages in a loop when it oscillates around the limit. These preferences are saved in an interface file, independent of the controller.",
+      onlyInstalled: "Notifications only work in the installed application.",
+      enable: "Enable alerts",
+      enableHint: "Notification when a threshold is crossed.",
+      warn: "“High temperature” threshold",
+      critical: "“Critical temperature” threshold",
+      disconnect: "Warn if the controller stops responding",
+      disconnectHint: "The fan keeps its last speed while it is unreachable.",
+      gpu: "Graphics card alerts",
+      gpuHint: "Same notifications, with separate thresholds. A sleeping card triggers none.",
+      gpuWarn: "“High temperature” threshold (card)",
+      gpuCritical: "“Critical temperature” threshold (card)",
+      snooze: "Pause",
+      snoozeText: "Temporarily silences the “High temperature” notifications and the controller's, for example during a game or a build that deliberately heats things up. <b>The “critical” alert is never paused.</b>",
+      snoozeRemaining: "Paused for another {{minutes}} min",
+      resume: "Resume",
+      m30: "30 min",
+      h1: "1 h",
+      h2: "2 h",
+    },
+  },
+}
