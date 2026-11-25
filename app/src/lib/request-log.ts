@@ -12,6 +12,11 @@ export interface LogEntry {
   status: number | "ERR" | "OPEN" | "LOST"
   ms?: number
   error?: string
+  /**
+   * Corps de la réponse (texte brut), tronqué à la source (voir api.ts). Absent pour les lignes SSE et pour une requête
+   * qui n'a pas pu atteindre le contrôleur.
+   */
+  response?: string
 }
 
 const KEY = "fancontroller:request-log"

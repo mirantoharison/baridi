@@ -1,12 +1,18 @@
 import { useCallback, useEffect, useRef, useState } from "react"
+import { forgetApiKey, getApiKey } from "@/lib/api-key"
 import { requestLog } from "@/lib/request-log"
-import { api, BASE_URL, type FanProfile, type FanStatus } from "@/lib/api"
+import { api, BASE_URL, type Fan2Curve, type Fan2Mode, type FanProfile, type FanStatus, type TempSource, type TuningPatch } from "@/lib/api"
 
 export interface Sample {
   t: number
   temp: number
   percent: number
   rpm: number
+  /** Mesures facultatives : absentes avec un contrôleur ancien ou sans carte NVIDIA. */
+  cpuUsage?: number
+  gpuTemp?: number
+  gpuUsage?: number
+  gpuPower?: number
 }
 
 const HISTORY_SIZE = 90
@@ -37,8 +43,19 @@ export function useFan() {
     // Évite de noyer le journal : une perte de connexion n'est consignée qu'une fois, pas à chaque tentative.
     let wasOpen = false
 
-    const connect = () => {
-      const es = new EventSource(`${BASE_URL}/events`)
+    const connect = async () => {
+      // IMPORTANT : un EventSource ne peut pas envoyer d'en-tête Authorization ; le contrôleur accepte donc la clé en
+      // paramètre `token`, mais seulement sur GET /events. Elle n'apparaît pas dans le journal (qui consigne « /events »).
+      let key: string
+      try {
+        key = await getApiKey()
+      } catch {
+        // Clé pas encore créée (le contrôleur démarre) ou illisible : on réessaie comme pour une connexion perdue.
+        if (!cancelled) retry = setTimeout(connect, 1500)
+        return
+      }
+      if (cancelled) return
+      const es = new EventSource(`${BASE_URL}/events?token=${encodeURIComponent(key)}`)
       sourceRef.current = es
       es.onopen = () => {
         wasOpen = true
@@ -50,7 +67,19 @@ export function useFan() {
         const s = JSON.parse(e.data) as FanStatus
         setStatus(s)
         setHistory((h) =>
-          [...h, { t: Date.now(), temp: s.temp_c, percent: s.percent, rpm: s.rpm }].slice(-HISTORY_SIZE),
+          [
+            ...h,
+            {
+              t: Date.now(),
+              temp: s.temp_c,
+              percent: s.percent,
+              rpm: s.rpm,
+              cpuUsage: s.cpu?.usage_percent,
+              gpuTemp: s.gpu?.temp_c,
+              gpuUsage: s.gpu?.usage_percent,
+              gpuPower: s.gpu?.power_w,
+            },
+          ].slice(-HISTORY_SIZE),
         )
       }
       es.onerror = () => {
@@ -58,6 +87,8 @@ export function useFan() {
         wasOpen = false
         setOnline(false)
         es.close()
+        // Un refus (clé périmée) ressemble à n'importe quelle erreur de flux : on relit la clé à la prochaine tentative.
+        forgetApiKey()
         if (!cancelled) retry = setTimeout(connect, 1500)
       }
     }
@@ -89,6 +120,10 @@ export function useFan() {
     setAuto: () => run(api.auto()),
     stop: () => run(api.stop()),
     setCurveMode: (mode: "steep" | "smooth") => run(api.setCurveMode(mode)),
+    setTuning: (patch: TuningPatch) => run(api.setTuning(patch)),
+    setFan2: (mode: Fan2Mode, percent?: number) => run(api.setFan2(mode, percent)),
+    setFan2Curve: (curve: Fan2Curve) => run(api.setFan2Curve(curve)),
+    setTempSource: (source: TempSource) => run(api.setTempSource(source)),
     selectProfile: (id: string) => run(api.setProfile(id)),
     async saveProfile(p: FanProfile) {
       try {

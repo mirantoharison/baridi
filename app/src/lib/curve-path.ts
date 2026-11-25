@@ -3,6 +3,26 @@ import type { CurvePoint } from "@/lib/api"
 export type CurveMode = "steep" | "smooth"
 
 /**
+ * Vitesse (%) que la courbe donne à une température — reprend `GetPWM` / `GetPWMSmooth` côté Go.
+ * Sert à placer un nouveau point exactement sur la courbe existante : l'ajouter ne change donc pas le comportement.
+ */
+export function speedAt(points: CurvePoint[], mode: CurveMode, temp: number): number {
+  if (points.length === 0) return 0
+  if (mode === "smooth") {
+    if (temp <= points[0].temp) return points[0].speed
+    for (let i = 0; i < points.length - 1; i++) {
+      const a = points[i]
+      const b = points[i + 1]
+      if (temp >= a.temp && temp <= b.temp && b.temp > a.temp) {
+        return Math.round(a.speed + ((temp - a.temp) / (b.temp - a.temp)) * (b.speed - a.speed))
+      }
+    }
+    return points[points.length - 1].speed
+  }
+  return (points.find((p) => temp < p.temp) ?? points[points.length - 1]).speed
+}
+
+/**
  * Tracé SVG d'une courbe, fidèle à la logique du contrôleur Go :
  * - steep  : escalier — la vitesse d'un point s'applique tant que temp < point.temp ;
  * - smooth : interpolation linéaire entre les points (vitesse du premier point en dessous, du dernier au-dessus).
