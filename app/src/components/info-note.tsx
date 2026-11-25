@@ -17,7 +17,7 @@ export function InfoNote({ summary, children, className }: Props) {
     <div
       role="note"
       className={cn(
-        "rounded-lg border border-sky-400/30 bg-sky-400/5 p-3 text-xs leading-relaxed text-muted-foreground [&_b]:font-semibold [&_b]:text-foreground [&_code]:rounded [&_code]:bg-muted [&_code]:px-1 [&_code]:font-mono",
+        "rounded-none border border-sky-400/30 bg-sky-400/5 p-3 text-xs leading-relaxed text-muted-foreground [&_b]:font-semibold [&_b]:text-foreground [&_code]:rounded [&_code]:bg-muted [&_code]:px-1 [&_code]:font-mono",
         className,
       )}
     >
