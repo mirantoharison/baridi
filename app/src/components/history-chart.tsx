@@ -1,4 +1,5 @@
 import { useState } from "react"
+import { useTranslation } from "react-i18next"
 import type { Sample } from "@/hooks/use-fan"
 import { cn } from "@/lib/utils"
 
@@ -21,7 +22,8 @@ function path(values: (number | undefined)[], max: number) {
  */
 interface Series {
   id: string
-  label: string
+  /** Clé de traduction du libellé. */
+  labelKey: string
   color: string
   pick: (s: Sample) => number | undefined
   max: number
@@ -29,17 +31,18 @@ interface Series {
 }
 
 const SERIES: Series[] = [
-  { id: "temp", label: "Température CPU", color: "url(#temp-gradient)", pick: (s) => s.temp, max: 100, always: true },
-  { id: "fan", label: "Ventilateur (%)", color: "var(--primary)", pick: (s) => s.percent, max: 100, always: true },
-  { id: "cpuUsage", label: "Charge CPU", color: "#8b9bb4", pick: (s) => s.cpuUsage, max: 100 },
-  { id: "gpuTemp", label: "Température GPU", color: "#c08a5a", pick: (s) => s.gpuTemp, max: 100 },
-  { id: "gpuUsage", label: "Charge GPU", color: "#7aa58a", pick: (s) => s.gpuUsage, max: 100 },
-  { id: "gpuPower", label: "Puissance GPU (/100 W)", color: "#a58ac0", pick: (s) => s.gpuPower, max: 100 },
-  { id: "rpm", label: "RPM (/6000)", color: "#d6d6d6", pick: (s) => s.rpm, max: 6000 },
+  { id: "temp", labelKey: "info.series.temp", color: "url(#temp-gradient)", pick: (s) => s.temp, max: 100, always: true },
+  { id: "fan", labelKey: "info.series.fan", color: "var(--primary)", pick: (s) => s.percent, max: 100, always: true },
+  { id: "cpuUsage", labelKey: "info.series.cpuUsage", color: "#8b9bb4", pick: (s) => s.cpuUsage, max: 100 },
+  { id: "gpuTemp", labelKey: "info.series.gpuTemp", color: "#c08a5a", pick: (s) => s.gpuTemp, max: 100 },
+  { id: "gpuUsage", labelKey: "info.series.gpuUsage", color: "#7aa58a", pick: (s) => s.gpuUsage, max: 100 },
+  { id: "gpuPower", labelKey: "info.series.gpuPower", color: "#a58ac0", pick: (s) => s.gpuPower, max: 100 },
+  { id: "rpm", labelKey: "info.series.rpm", color: "#d6d6d6", pick: (s) => s.rpm, max: 6000 },
 ]
 
 /** Historique récent : température et ventilateur d'office, autres séries à cocher (celles sans donnée sont masquées). */
 export function HistoryChart({ history }: { history: Sample[] }) {
+  const { t } = useTranslation()
   const [enabled, setEnabled] = useState<Set<string>>(new Set())
   const available = SERIES.filter((s) => s.always || history.some((h) => s.pick(h) !== undefined))
   const toggle = (id: string) =>
@@ -86,7 +89,7 @@ export function HistoryChart({ history }: { history: Sample[] }) {
               )}
             >
               <i className="inline-block h-0.5 w-4" style={{ background: s.id === "temp" ? "var(--warm)" : s.color, opacity: isOn ? 1 : 0.35 }} />
-              {s.label}
+              {t(s.labelKey)}
             </button>
           )
         })}

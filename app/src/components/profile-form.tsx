@@ -1,5 +1,6 @@
 import { useState } from "react"
 import { Plus, Save, X } from "lucide-react"
+import { useTranslation } from "react-i18next"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -31,8 +32,9 @@ interface Props {
 const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, Number.isFinite(v) ? v : lo))
 
 export function ProfileForm({ profiles, curveMode, initial, base, onSave, onCancel }: Props) {
+  const { t } = useTranslation()
   const seed = initial ?? base
-  const [name, setName] = useState(initial?.name ?? (base ? `${base.name} (copie)` : ""))
+  const [name, setName] = useState(initial?.name ?? (base ? `${base.name} ${t("profiles.copySuffix")}` : ""))
   const [description, setDescription] = useState(seed?.description ?? "")
   const [icon, setIcon] = useState(seed?.icon ?? "Gauge")
   const [points, setPoints] = useState<CurvePoint[]>(seed ? seed.points.map((p) => ({ ...p })) : DEFAULT_POINTS)
@@ -62,36 +64,36 @@ export function ProfileForm({ profiles, curveMode, initial, base, onSave, onCanc
   return (
     <Card className="flex-1">
       <CardHeader className="flex flex-row items-center justify-between">
-        <CardTitle className="text-xs">{initial ? `Modifier « ${initial.name} »` : "Nouveau profil"}</CardTitle>
+        <CardTitle className="text-xs">{initial ? t("profiles.form.editTitle", { name: initial.name }) : t("profiles.form.newTitle")}</CardTitle>
         <div className="flex gap-1.5">
           <Button size="sm" variant="ghost" onClick={onCancel}>
-            <X /> Annuler
+            <X /> {t("profiles.form.cancel")}
           </Button>
           <Button size="sm" onClick={submit} disabled={!valid}>
-            <Save /> {initial ? "Enregistrer" : "Créer le profil"}
+            <Save /> {initial ? t("profiles.form.save") : t("profiles.form.create")}
           </Button>
         </div>
       </CardHeader>
       <CardContent className="space-y-5">
         <div className="grid grid-cols-2 gap-4">
           <div className="space-y-1.5">
-            <Label htmlFor="p-name">Nom</Label>
-            <Input id="p-name" value={name} onChange={(e) => setName(e.target.value)} placeholder="Ex. Gaming" />
+            <Label htmlFor="p-name">{t("profiles.form.name")}</Label>
+            <Input id="p-name" value={name} onChange={(e) => setName(e.target.value)} placeholder={t("profiles.form.namePlaceholder")} />
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor="p-desc">Description</Label>
-            <Input id="p-desc" value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Optionnel" />
+            <Label htmlFor="p-desc">{t("profiles.form.description")}</Label>
+            <Input id="p-desc" value={description} onChange={(e) => setDescription(e.target.value)} placeholder={t("profiles.form.descriptionPlaceholder")} />
           </div>
         </div>
 
         <div className="space-y-1.5">
-          <Label>Icône</Label>
+          <Label>{t("profiles.form.icon")}</Label>
           <div className="flex flex-wrap gap-1.5">
-            {PROFILE_ICONS.map(({ name: n, label }) => (
+            {PROFILE_ICONS.map(({ name: n }) => (
               <button
                 key={n}
                 type="button"
-                title={label}
+                title={t(`profiles.icons.${n}`)}
                 onClick={() => setIcon(n)}
                 className={cn(
                   "flex size-9 items-center justify-center rounded-none border transition-colors hover:bg-accent",
@@ -106,7 +108,7 @@ export function ProfileForm({ profiles, curveMode, initial, base, onSave, onCanc
 
         {!initial && !base && profiles.length > 0 && (
           <div className="space-y-1.5">
-            <Label>Partir d'un profil existant</Label>
+            <Label>{t("profiles.form.startFrom")}</Label>
             <Select
               onValueChange={(id) => {
                 const base = profiles.find((p) => p.id === id)
@@ -114,7 +116,7 @@ export function ProfileForm({ profiles, curveMode, initial, base, onSave, onCanc
               }}
             >
               <SelectTrigger className="w-56">
-                <span className="text-muted-foreground">Copier la courbe de…</span>
+                <span className="text-muted-foreground">{t("profiles.form.copyCurve")}</span>
               </SelectTrigger>
               <SelectContent>
                 {profiles.map((p) => (
@@ -131,18 +133,18 @@ export function ProfileForm({ profiles, curveMode, initial, base, onSave, onCanc
 
         <div className="space-y-2">
           <div className="flex items-center justify-between">
-            <Label>Courbe</Label>
+            <Label>{t("profiles.form.curve")}</Label>
             <Button size="sm" variant="outline" onClick={addPoint}>
-              <Plus /> Palier
+              <Plus /> {t("profiles.form.step")}
             </Button>
           </div>
           <CurveEditor points={points} editable onChange={setPoints} mode={curveMode} />
           <p className="text-muted-foreground">
-            Chaque ligne du tableau est un point de la courbe : la première colonne indique la température en degrés et la seconde la vitesse du ventilateur en pourcentage. Selon le mode choisi dans les réglages, un point fixe la vitesse tant que la température reste sous sa valeur (Steep) ou sert de repère entre lesquels la vitesse est interpolée (Smooth) ; dans les deux cas, la vitesse du dernier point s'applique au-delà de sa température. Sur le graphique, tu peux glisser un point pour régler sa vitesse (par pas de 5 %) et sa température (par degré, sans dépasser ses voisins), double-cliquer sur le fond pour ajouter un point exactement sur la courbe actuelle, ou double-cliquer sur un point pour le retirer ; au clavier, sélectionne un point puis utilise les flèches (haut et bas pour la vitesse, gauche et droite pour la température) et Suppr pour le retirer. Tu peux aussi saisir directement les valeurs dans le tableau pour plus de précision, ajouter un point avec le bouton « Palier » ou en retirer un avec la croix (il en faut au moins un). Les points sont triés par température à l'enregistrement et les vitesses sont limitées entre 0 et 100 %. Pense à garder une courbe qui monte avec la température : une courbe qui redescendrait à chaud ralentirait le ventilateur au pire moment. Le nom est obligatoire, la description et l'icône servent seulement à reconnaître le profil dans les listes.
+            {t("profiles.form.help")}
           </p>
           <div className="grid grid-cols-[1fr_1fr_auto] items-center gap-2">
-            <span className="text-muted-foreground">Jusqu'à (°C)</span>
-            <span className="text-muted-foreground">Vitesse (%)</span>
+            <span className="text-muted-foreground">{t("profiles.form.upTo")}</span>
+            <span className="text-muted-foreground">{t("profiles.form.speed")}</span>
             <span />
             {points.map((p, i) => (
               <div key={i} className="contents">
@@ -165,7 +167,7 @@ export function ProfileForm({ profiles, curveMode, initial, base, onSave, onCanc
                   variant="ghost"
                   disabled={points.length <= 1}
                   onClick={() => setPoints((pts) => pts.filter((_, j) => j !== i))}
-                  aria-label="Supprimer le palier"
+                  aria-label={t("profiles.form.removeStep")}
                 >
                   <X />
                 </Button>

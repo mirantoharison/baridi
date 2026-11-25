@@ -1,6 +1,7 @@
 import { useEffect, useRef } from "react"
 import { createPortal } from "react-dom"
 import { AlertTriangle } from "lucide-react"
+import { useTranslation } from "react-i18next"
 import { Button } from "@/components/ui/button"
 
 interface Props {
@@ -15,7 +16,8 @@ interface Props {
  * Boîte de confirmation modale (alertdialog). Le focus démarre sur « Annuler » : l'option sûre est celle
  * qu'une frappe sur Entrée déclenche. Échap ou un clic à côté annulent.
  */
-export function ConfirmDialog({ title, message, confirmLabel = "Continuer quand même", onConfirm, onCancel }: Props) {
+export function ConfirmDialog({ title, message, confirmLabel, onConfirm, onCancel }: Props) {
+  const { t } = useTranslation()
   const cancelRef = useRef<HTMLButtonElement>(null)
 
   useEffect(() => {
@@ -48,10 +50,10 @@ export function ConfirmDialog({ title, message, confirmLabel = "Continuer quand 
         </div>
         <div className="flex justify-end gap-2">
           <Button ref={cancelRef} size="sm" variant="outline" onClick={onCancel}>
-            Annuler
+            {t("control.confirm.cancel")}
           </Button>
           <Button size="sm" onClick={onConfirm}>
-            {confirmLabel}
+            {confirmLabel ?? t("control.confirm.continueAnyway")}
           </Button>
         </div>
       </div>

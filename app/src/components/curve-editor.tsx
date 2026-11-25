@@ -1,4 +1,5 @@
 import { useRef, useState } from "react"
+import { useTranslation } from "react-i18next"
 import { curvePath, speedAt, type CurveMode } from "@/lib/curve-path"
 import { useSize } from "@/lib/use-size"
 import { cn } from "@/lib/utils"
@@ -37,6 +38,7 @@ const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v
  * - au clavier, un point sélectionné se déplace avec les flèches (↑↓ vitesse, ←→ température) et se retire avec Suppr.
  */
 export function CurveEditor({ points, temp, editable, onChange, mode = "steep", className = "h-72" }: Props) {
+  const { t } = useTranslation()
   const [wrapRef, W, H] = useSize<HTMLDivElement>(560, 280)
   const [active, setActive] = useState<number | null>(null)
   const draggingRef = useRef(false)
@@ -139,17 +141,17 @@ export function CurveEditor({ points, temp, editable, onChange, mode = "steep", 
           </text>
         </g>
       ))}
-      {[20, 30, 40, 50, 60, 70, 80, 90, 100].map((t) => (
-        <text key={t} x={x(t)} y={H - 8} textAnchor="middle" className="fill-muted-foreground font-mono text-xs">
-          {t}°
+      {[20, 30, 40, 50, 60, 70, 80, 90, 100].map((deg) => (
+        <text key={deg} x={x(deg)} y={H - 8} textAnchor="middle" className="fill-muted-foreground font-mono text-xs">
+          {deg}°
         </text>
       ))}
 
       <text x={PAD.l} y={9} className="fill-muted-foreground text-xs">
-        Vitesse ventilateur (%)
+        {t("profiles.editor.fanSpeed")}
       </text>
       <text x={W - PAD.r} y={H - 20} textAnchor="end" className="fill-muted-foreground text-xs">
-        Température CPU (°C)
+        {t("profiles.editor.cpuTemp")}
       </text>
 
       {area && <path d={area} fill="var(--primary)" opacity="0.1" />}
@@ -169,7 +171,7 @@ export function CurveEditor({ points, temp, editable, onChange, mode = "steep", 
             key={i}
             tabIndex={editable ? 0 : undefined}
             role={editable ? "slider" : undefined}
-            aria-label={editable ? `Point ${i + 1} : ${p.temp}° pour ${p.speed} %` : undefined}
+            aria-label={editable ? t("profiles.editor.point", { n: i + 1, temp: p.temp, speed: p.speed }) : undefined}
             aria-valuenow={editable ? p.speed : undefined}
             aria-valuemin={editable ? 0 : undefined}
             aria-valuemax={editable ? 100 : undefined}

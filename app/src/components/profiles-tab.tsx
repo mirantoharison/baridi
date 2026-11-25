@@ -1,5 +1,6 @@
 import { useState } from "react"
 import { Check, Copy, Lock, Pencil, Plus, Trash2 } from "lucide-react"
+import { Trans, useTranslation } from "react-i18next"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -29,6 +30,7 @@ const GAP_PX = 4
 
 /** Brique du haut : liste défilante des profils (4 visibles max). Brique du bas : détail / édition du profil sélectionné. */
 export function ProfilesTab({ profiles, status, onActivate, onSave, onDelete }: Props) {
+  const { t } = useTranslation()
   const activeId = status?.profile
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [view, setView] = useState<View>("view")
@@ -62,21 +64,15 @@ export function ProfilesTab({ profiles, status, onActivate, onSave, onDelete }: 
 
   return (
     <div className="flex flex-1 flex-col gap-4">
-      <InfoNote
-        summary={
-          <>
-            Cet onglet rassemble <b>tous tes profils au même endroit</b>. La liste du haut montre les profils <b>système</b> (verrouillés par un cadenas, ils sont fournis avec l'application et ne peuvent ni être modifiés ni supprimés) ainsi que tes profils <b>custom</b>, que tu peux créer, modifier et supprimer librement ; elle affiche quatre profils à la fois et défile au-delà. Chaque ligne rappelle l'icône du profil, son nom, sa description et un aperçu de sa courbe, et une coche verte indique celui qui est actuellement actif. Clique sur une ligne pour afficher en dessous la courbe détaillée du profil sélectionné, avec la température actuelle en repère, ainsi que les actions possibles : activer le profil, le dupliquer et, pour un profil custom, le modifier ou le supprimer.
-          </>
-        }
-      >
-        Un profil est une courbe qui associe une température à une vitesse de ventilateur, accompagnée d'un nom, d'une description facultative et d'une icône choisie parmi dix (flamme, froid, éclair, vent, jauge, thermomètre, silencieux, processeur, éco et turbo) qui t'aide à le reconnaître dans les listes. Trois profils système sont fournis : <b>Silent</b>, qui privilégie le silence et ne monte en régime que lorsque la machine chauffe vraiment, <b>Balanced</b>, un compromis entre bruit et refroidissement, et <b>Turbo</b>, qui refroidit agressivement dès les premiers degrés. Les profils custom sont enregistrés par le contrôleur dans un fichier <code>profiles.json</code> placé à côté de son exécutable : tu peux donc le sauvegarder, le copier sur une autre machine ou le modifier à la main, à condition de conserver un JSON valide. À l'enregistrement, les points sont triés par température et chaque vitesse est ramenée entre 0 et 100 %, quoi que tu aies saisi. Le bouton <b>Dupliquer</b> ouvre le formulaire de création prérempli avec la courbe du profil sélectionné et le nom suivi de « (copie) » : c'est le moyen le plus simple de partir d'une bonne base, y compris à partir d'un profil système. <b>Activer</b> applique le profil immédiatement et le mémorise pour le prochain lancement. Modifier le profil actif met sa courbe à jour dès l'enregistrement. Supprimer le profil actif ne change pas la courbe en cours d'utilisation tant qu'un autre profil n'a pas été choisi, mais il disparaît des listes et ne pourra plus être réactivé, y compris après un redémarrage, où le contrôleur reviendra alors sur un profil par défaut.
+      <InfoNote summary={<Trans i18nKey="profiles.summary" components={{ b: <b /> }} />}>
+        <Trans i18nKey="profiles.details" components={{ b: <b />, code: <code /> }} />
       </InfoNote>
 
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
-          <CardTitle className="text-xs">Profils ({profiles.length})</CardTitle>
+          <CardTitle className="text-xs">{t("profiles.listTitle", { count: profiles.length })}</CardTitle>
           <Button size="sm" variant="outline" onClick={() => setView("new")}>
-            <Plus /> Nouveau profil
+            <Plus /> {t("profiles.newProfile")}
           </Button>
         </CardHeader>
         <CardContent>
@@ -94,7 +90,7 @@ export function ProfilesTab({ profiles, status, onActivate, onSave, onDelete }: 
                   <ProfileIcon name={p.icon} />
                   <span className="w-32 truncate font-medium">{p.name}</span>
                   <span className="flex-1 truncate text-muted-foreground">
-                    {p.description || `${p.points.length} points`}
+                    {p.description || t("profiles.points", { count: p.points.length })}
                   </span>
                   <MiniCurve points={p.points} mode={status?.curve_mode} />
                   {p.source !== "user" ? <Lock className="size-3 text-muted-foreground" /> : <span className="size-3" />}
@@ -118,10 +114,10 @@ export function ProfilesTab({ profiles, status, onActivate, onSave, onDelete }: 
                   <div>
                     <div className="flex items-center gap-2 text-sm font-semibold">
                       {selected.name}
-                      <Badge variant="secondary">{isUser ? "Custom" : "Système"}</Badge>
+                      <Badge variant="secondary">{isUser ? t("profiles.custom") : t("profiles.system")}</Badge>
                     </div>
                     <div className="text-muted-foreground">
-                      {selected.description || `${selected.points.length} points`}
+                      {selected.description || t("profiles.points", { count: selected.points.length })}
                     </div>
                   </div>
                 </div>
@@ -133,21 +129,21 @@ export function ProfilesTab({ profiles, status, onActivate, onSave, onDelete }: 
                     className="w-24 disabled:opacity-100"
                     onClick={() => onActivate(selected.id)}
                   >
-                    <Check /> {isActive ? "Actif" : "Activer"}
+                    <Check /> {isActive ? t("profiles.active") : t("profiles.activate")}
                   </Button>
                   <Button size="sm" variant="outline" onClick={() => setView("duplicate")}>
-                    <Copy /> Dupliquer
+                    <Copy /> {t("profiles.duplicate")}
                   </Button>
                   {isUser && (
                     <>
-                      <Button size="icon" variant="ghost" aria-label="Modifier" onClick={() => setView("edit")}>
+                      <Button size="icon" variant="ghost" aria-label={t("profiles.edit")} onClick={() => setView("edit")}>
                         <Pencil />
                       </Button>
                       <Button
                         size="icon"
                         variant="ghost"
                         className="text-destructive"
-                        aria-label="Supprimer"
+                        aria-label={t("profiles.delete")}
                         onClick={async () => {
                           await onDelete(selected.id)
                           setSelectedId(null)

@@ -1,3 +1,5 @@
+import i18n from "@/i18n"
+
 /**
  * Garde-fous de l'interface : avertissements AVANT un réglage qui laisserait le processeur sans refroidissement suffisant.
  *
@@ -20,11 +22,11 @@ const MIN_SPEED_BY_TEMP: { temp: number; min: number }[] = [
 export function manualSpeedWarning(temp: number, percent: number): string | null {
   const rule = MIN_SPEED_BY_TEMP.find((r) => temp >= r.temp)
   if (!rule || percent >= rule.min) return null
-  return `Le processeur est à ${temp}° et la vitesse demandée est de ${percent} %. En dessous de ${rule.min} %, il risque de continuer à chauffer : rien ne régulera la vitesse tant que tu restes en mode Manuel.`
+  return i18n.t("control.guards.manual", { temp, percent, min: rule.min })
 }
 
 /** Message d'avertissement avant de couper le pilotage automatique à chaud, sinon null. */
 export function stopWarning(temp: number): string | null {
   if (temp < STOP_WARN_TEMP_C) return null
-  return `Le processeur est à ${temp}°. En mode Arrêt, le ventilateur garde sa dernière vitesse sans plus s'adapter à la température : si elle monte, rien ne l'accélérera.`
+  return i18n.t("control.guards.stop", { temp })
 }

@@ -1,5 +1,6 @@
 import { useCallback, useState } from "react"
 import { Gauge } from "lucide-react"
+import { useTranslation } from "react-i18next"
 import { Choice } from "@/components/choice"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { usePolled } from "@/hooks/use-polled"
@@ -12,6 +13,7 @@ const REFRESH_MS = 10_000
  * proposés (« Performances maximales » est masqué par Windows sur la plupart des machines).
  */
 export function PowerPlanCard() {
+  const { t } = useTranslation()
   const polled = usePolled(api.powerPlan, REFRESH_MS)
   // Réponse du dernier changement, affichée tout de suite sans attendre la relecture.
   const [overridden, setOverridden] = useState<typeof polled>(null)
@@ -33,21 +35,21 @@ export function PowerPlanCard() {
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2 text-xs">
-          <Gauge className="size-4 text-muted-foreground" /> Plan d'alimentation Windows
+          <Gauge className="size-4 text-muted-foreground" /> {t("control.powerPlan.title")}
         </CardTitle>
         <CardDescription>
-          Le plan de Windows règle la puissance maximale du processeur et la mise en veille, en plus de ton profil de ventilateur. Le changement s'applique à toute la machine.
-          {isCustom && " Un plan personnalisé est actif : choisir un plan standard le remplace."}
+          {t("control.powerPlan.description")}
+          {isCustom && t("control.powerPlan.customActive")}
         </CardDescription>
       </CardHeader>
       <CardContent className="flex items-center gap-3">
         <Choice
           className="w-60"
           value={isCustom ? "" : state.active}
-          options={state.available.map((p) => ({ value: p, label: p }))}
+          options={state.available.map((p) => ({ value: p, label: t(`control.powerPlan.plans.${p}`, { defaultValue: p }) }))}
           onChange={change}
         />
-        {isCustom && <span className="text-muted-foreground">Actuellement : {state.active}</span>}
+        {isCustom && <span className="text-muted-foreground">{t("control.powerPlan.currently", { plan: t(`control.powerPlan.plans.${state.active}`, { defaultValue: state.active }) })}</span>}
         {error && <span className="text-destructive">{error}</span>}
       </CardContent>
     </Card>

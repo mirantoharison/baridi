@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react"
 import { AlertTriangle, Cpu, Hand, Spline, Wind } from "lucide-react"
+import { Trans, useTranslation } from "react-i18next"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Slider } from "@/components/ui/slider"
@@ -10,11 +11,11 @@ import { FAN2_MIN_MANUAL_PERCENT, type CurvePoint, type Fan2Curve, type Fan2Mode
 import { manualSpeedWarning } from "@/lib/guards"
 import { cn } from "@/lib/utils"
 
-const MODES: { id: Fan2Mode; label: string; icon: typeof Wind }[] = [
-  { id: "firmware", label: "BIOS", icon: Cpu },
-  { id: "follow", label: "Suivre le 1", icon: Wind },
-  { id: "manual", label: "Manuel", icon: Hand },
-  { id: "curve", label: "Courbe", icon: Spline },
+const MODES: { id: Fan2Mode; icon: typeof Wind }[] = [
+  { id: "firmware", icon: Cpu },
+  { id: "follow", icon: Wind },
+  { id: "manual", icon: Hand },
+  { id: "curve", icon: Spline },
 ]
 
 /** Courbe proposée la première fois : douce au repos, pleine vitesse avant la zone dangereuse. */
@@ -25,22 +26,7 @@ const DEFAULT_FAN2_POINTS: CurvePoint[] = [
   { temp: 85, speed: 100 },
 ]
 
-const SOURCE_OPTIONS: { value: Fan2Source; label: string }[] = [
-  { value: "cpu", label: "Température du processeur" },
-  { value: "gpu", label: "Température de la carte graphique" },
-  { value: "max", label: "La plus haute des deux" },
-]
-
-const DESCRIPTIONS: Record<Fan2Mode, string> = {
-  firmware:
-    "Le BIOS de la carte mère pilote ce ventilateur. Au démarrage, c'est le mode par défaut et il n'a aucun effet sur le ventilateur 1. Mais y revenir après « Suivre le 1 » ou « Manuel » coupe le mode test de la DLL, ce qui rend AUSSI le ventilateur 1 au BIOS : la courbe de ton profil est alors ignorée tant que ce mode reste actif. Le BIOS garde la machine au frais, mais il ne suit plus tes réglages.",
-  follow:
-    "Ce ventilateur reçoit la même consigne que le ventilateur 1 : il suit donc la courbe du profil actif, y compris le lissage et l'hystérésis. La consigne est réécrite par paliers d'environ 4 % pour ne pas ralentir la montée en vitesse.",
-  manual:
-    "Tu fixes toi-même la vitesse de ce ventilateur. Elle est maintenue quelle que soit la température du processeur, sauf au-delà de 85° où il repasse tout seul en mode « Suivre le 1 ». Ce choix n'est jamais mémorisé : au prochain lancement, il redevient piloté par le firmware.",
-  curve:
-    "Ce ventilateur a sa propre courbe, indépendante du profil, calée sur la température de ton choix. Sur ce portable c'est celui de la carte graphique : le caler sur la GPU le fait accélérer quand un jeu la sollicite, même si le processeur reste frais. La température de la carte n'est lue que si elle est déjà allumée : l'application ne la réveille jamais, et se rabat sur celle du processeur quand elle dort. Au-delà de 85° (processeur), il repasse en « Suivre le 1 ». Cette courbe est mémorisée.",
-}
+const SOURCES: Fan2Source[] = ["cpu", "gpu", "max"]
 
 /** Délai avant d'envoyer la valeur du curseur : évite d'inonder le contrôleur pendant que l'on glisse. */
 const SEND_DELAY_MS = 250
@@ -57,6 +43,7 @@ interface Props {
  * rend toujours le ventilateur au firmware.
  */
 export function Fan2Card({ status, onFan2, onFan2Curve }: Props) {
+  const { t } = useTranslation()
   const mode = status.fan2_mode ?? "firmware"
   // Brouillon de la courbe : modifié librement, appliqué seulement par le bouton (chaque envoi réécrit le matériel).
   const [draftPoints, setDraftPoints] = useState<CurvePoint[]>(status.fan2_curve?.points ?? DEFAULT_FAN2_POINTS)
@@ -79,17 +66,16 @@ export function Fan2Card({ status, onFan2, onFan2Curve }: Props) {
   const sendManual = (percent: number) => {
     const warning = manualSpeedWarning(tempRef.current, percent)
     if (!warning) return onFan2("manual", percent)
-    setPending({ title: "Vitesse manuelle faible", message: warning, run: () => onFan2("manual", percent) })
+    setPending({ title: t("control.guards.lowSpeedTitle"), message: warning, run: () => onFan2("manual", percent) })
   }
 
   /** Revenir au BIOS après un autre mode libère aussi le ventilateur 1 : on demande confirmation (voir DESCRIPTIONS.firmware). */
   const goBios = () => {
     if (mode === "firmware") return
     setPending({
-      title: "Passer en mode BIOS ?",
-      message:
-        "Le BIOS va piloter les deux ventilateurs, y compris le ventilateur 1 : la courbe de ton profil sera ignorée tant que tu restes dans ce mode. Pour la retrouver, choisis « Suivre le 1 » ou « Manuel ».",
-      confirmLabel: "Passer en BIOS",
+      title: t("control.fan2.biosConfirmTitle"),
+      message: t("control.fan2.biosConfirmMessage"),
+      confirmLabel: t("control.fan2.biosConfirmLabel"),
       run: () => onFan2("firmware"),
     })
   }
@@ -104,12 +90,12 @@ export function Fan2Card({ status, onFan2, onFan2Curve }: Props) {
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2 text-xs">
-          <Wind className="size-4 text-muted-foreground" /> Ventilateur 2
+          <Wind className="size-4 text-muted-foreground" /> {t("control.fan2.title")}
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="grid grid-cols-4 gap-1 rounded-none bg-muted p-1">
-          {MODES.map(({ id, label, icon: Icon }) => (
+          {MODES.map(({ id, icon: Icon }) => (
             <button
               key={id}
               onClick={() => {
@@ -126,7 +112,7 @@ export function Fan2Card({ status, onFan2, onFan2Curve }: Props) {
               )}
             >
               <Icon className="size-4" />
-              {label}
+              {t(`control.fan2.modes.${id}`)}
             </button>
           ))}
         </div>
@@ -134,7 +120,7 @@ export function Fan2Card({ status, onFan2, onFan2Curve }: Props) {
         {mode === "manual" && (
           <div className="space-y-3">
             <div className="flex items-baseline justify-between">
-              <span className="text-muted-foreground">Vitesse manuelle</span>
+              <span className="text-muted-foreground">{t("control.fan2.manualSpeed")}</span>
               <span className="font-mono text-base font-semibold tabular-nums">{value}%</span>
             </div>
             <Slider value={[value]} min={FAN2_MIN_MANUAL_PERCENT} max={100} step={5} onValueChange={(v) => commit(Array.isArray(v) ? v[0] : v)} />
@@ -151,11 +137,11 @@ export function Fan2Card({ status, onFan2, onFan2Curve }: Props) {
         {(mode === "curve" || isCurveOpen) && (
           <div className="space-y-3">
             <div className="flex items-center gap-2">
-              <span className="text-muted-foreground">Calée sur</span>
+              <span className="text-muted-foreground">{t("control.fan2.basedOn")}</span>
               <Choice
                 className="w-64"
                 value={draftSource}
-                options={SOURCE_OPTIONS.map((o) => ({ ...o, icon: null }))}
+                options={SOURCES.map((value) => ({ value, label: t(`control.fan2.sources.${value}`) }))}
                 onChange={(v) => setDraftSource(v as Fan2Source)}
               />
             </div>
@@ -174,7 +160,7 @@ export function Fan2Card({ status, onFan2, onFan2Curve }: Props) {
                 setIsCurveOpen(false)
               }}
             >
-              Appliquer la courbe
+              {t("control.fan2.applyCurve")}
             </Button>
           </div>
         )}
@@ -184,12 +170,12 @@ export function Fan2Card({ status, onFan2, onFan2Curve }: Props) {
           <div role="alert" className="flex items-start gap-2 border border-amber-500/50 bg-amber-500/10 p-3 text-amber-600 dark:text-amber-400">
             <AlertTriangle className="mt-0.5 size-4 shrink-0" />
             <span>
-              Le BIOS pilote actuellement les <b>deux</b> ventilateurs : la courbe de ton profil est ignorée, même si la page Pilotage affiche « Auto ». Choisis « Suivre le 1 » ou « Manuel » pour la retrouver.
+              <Trans i18nKey="control.fan2.biosOverride" components={{ b: <b /> }} />
             </span>
           </div>
         )}
 
-        <p className="text-muted-foreground">{DESCRIPTIONS[isCurveOpen ? "curve" : mode]}</p>
+        <p className="text-muted-foreground">{t(`control.fan2.descriptions.${isCurveOpen ? "curve" : mode}`)}</p>
       </CardContent>
 
       {pending && (

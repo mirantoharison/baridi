@@ -1,5 +1,7 @@
 import { useCallback, useMemo, useState } from "react"
 import { BatteryMedium, Fan, History as HistoryIcon, Sun } from "lucide-react"
+import { Trans, useTranslation } from "react-i18next"
+import type { TFunction } from "i18next"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { usePolled } from "@/hooks/use-polled"
@@ -9,12 +11,12 @@ import { cn } from "@/lib/utils"
 /** L'historique change peu : une relecture toutes les 30 s (la période d'enregistrement du contrôleur) suffit. */
 const REFRESH_MS = 30_000
 
-const RANGES: { label: string; hours: number }[] = [
-  { label: "1 h", hours: 1 },
-  { label: "6 h", hours: 6 },
-  { label: "24 h", hours: 24 },
-  { label: "7 jours", hours: 24 * 7 },
-  { label: "14 jours", hours: 24 * 14 },
+const RANGES: { key: string; hours: number }[] = [
+  { key: "h1", hours: 1 },
+  { key: "h6", hours: 6 },
+  { key: "h24", hours: 24 },
+  { key: "d7", hours: 24 * 7 },
+  { key: "d14", hours: 24 * 14 },
 ]
 
 const W = 600
@@ -26,7 +28,6 @@ const H = 160
  */
 interface Series {
   id: string
-  label: string
   color: string
   pick: (s: HistorySample) => number | undefined
   max: number
@@ -34,15 +35,15 @@ interface Series {
 }
 
 const SERIES: Series[] = [
-  { id: "temp", label: "Température CPU", color: "#d6a35c", pick: (s) => s.temp, max: 100, on: true },
-  { id: "gpuT", label: "Température GPU", color: "#c0775a", pick: (s) => s.gpu_t, max: 100, on: false },
-  { id: "pct", label: "Ventilateur (%)", color: "#7aa6d6", pick: (s) => s.pct, max: 100, on: true },
-  { id: "rpm", label: "RPM (/6000)", color: "#d6d6d6", pick: (s) => s.rpm, max: 6000, on: false },
-  { id: "cpu", label: "Charge CPU", color: "#8b9bb4", pick: (s) => s.cpu, max: 100, on: false },
-  { id: "gpuU", label: "Charge GPU", color: "#7aa58a", pick: (s) => s.gpu_u, max: 100, on: false },
-  { id: "gpuW", label: "Puissance GPU (/100 W)", color: "#a58ac0", pick: (s) => s.gpu_w, max: 100, on: false },
-  { id: "bat", label: "Batterie (%)", color: "#7ac0b8", pick: (s) => s.bat, max: 100, on: false },
-  { id: "batW", label: "Puissance batterie (/100 W)", color: "#c0b07a", pick: (s) => (s.bat_w !== undefined ? Math.abs(s.bat_w) : undefined), max: 100, on: false },
+  { id: "temp", color: "#d6a35c", pick: (s) => s.temp, max: 100, on: true },
+  { id: "gpuT", color: "#c0775a", pick: (s) => s.gpu_t, max: 100, on: false },
+  { id: "pct", color: "#7aa6d6", pick: (s) => s.pct, max: 100, on: true },
+  { id: "rpm", color: "#d6d6d6", pick: (s) => s.rpm, max: 6000, on: false },
+  { id: "cpu", color: "#8b9bb4", pick: (s) => s.cpu, max: 100, on: false },
+  { id: "gpuU", color: "#7aa58a", pick: (s) => s.gpu_u, max: 100, on: false },
+  { id: "gpuW", color: "#a58ac0", pick: (s) => s.gpu_w, max: 100, on: false },
+  { id: "bat", color: "#7ac0b8", pick: (s) => s.bat, max: 100, on: false },
+  { id: "batW", color: "#c0b07a", pick: (s) => (s.bat_w !== undefined ? Math.abs(s.bat_w) : undefined), max: 100, on: false },
 ]
 
 /** Tracé d'une série : une interruption (plus de 3 fois le pas médian) coupe la ligne au lieu de relier deux périodes sans lien. */
@@ -64,14 +65,15 @@ function buildPath(samples: HistorySample[], pick: Series["pick"], max: number, 
 }
 
 /** Heure ou date selon la durée affichée. */
-function formatTime(t: number, hours: number): string {
+function formatTime(t: number, hours: number, locale: string): string {
   const date = new Date(t * 1000)
   return hours <= 24
-    ? date.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })
-    : date.toLocaleDateString("fr-FR", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })
+    ? date.toLocaleTimeString(locale, { hour: "2-digit", minute: "2-digit" })
+    : date.toLocaleDateString(locale, { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })
 }
 
 function Timeline({ samples, hours, enabled }: { samples: HistorySample[]; hours: number; enabled: Set<string> }) {
+  const { i18n } = useTranslation()
   const t0 = samples[0]?.t ?? 0
   const span = Math.max(1, (samples[samples.length - 1]?.t ?? 0) - t0)
   const gap = useMemo(() => {
@@ -89,40 +91,37 @@ function Timeline({ samples, hours, enabled }: { samples: HistorySample[]; hours
         ))}
       </svg>
       <div className="mt-1 flex justify-between text-muted-foreground">
-        <span>{formatTime(t0, hours)}</span>
-        <span>{formatTime(t0 + span, hours)}</span>
+        <span>{formatTime(t0, hours, i18n.language)}</span>
+        <span>{formatTime(t0 + span, hours, i18n.language)}</span>
       </div>
     </div>
   )
 }
 
-const FOULING_TEXT: Record<Fouling["status"], string> = {
-  insufficient: "Pas encore assez de recul pour se prononcer.",
-  ok: "Aucune dérive : à consigne égale, le ventilateur tourne comme au début.",
-  watch: "Légère baisse de la vitesse à consigne égale : à surveiller.",
-  clean: "Nette baisse de la vitesse à consigne égale : un nettoyage des ventilateurs et des grilles est conseillé.",
-}
-
 function FoulingCard({ fouling }: { fouling: Fouling | null }) {
+  const { t } = useTranslation()
   return (
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2 text-xs">
-          <Fan className="size-4 text-muted-foreground" /> Encrassement
+          <Fan className="size-4 text-muted-foreground" /> {t("history.fouling.title")}
         </CardTitle>
-        <CardDescription>
-          Compare, à consigne égale, la vitesse du ventilateur 1 au début de l'historique et aujourd'hui : un ventilateur qui tourne de moins en moins vite pour la même consigne trahit de la poussière ou un roulement fatigué. Il faut au moins 3 jours d'historique.
-        </CardDescription>
+        <CardDescription>{t("history.fouling.description")}</CardDescription>
       </CardHeader>
       <CardContent className="space-y-1.5">
         {!fouling ? (
-          <p className="text-muted-foreground">Lecture en cours…</p>
+          <p className="text-muted-foreground">{t("history.fouling.reading")}</p>
         ) : (
           <>
-            <p>{FOULING_TEXT[fouling.status]}</p>
+            <p>{t(`history.fouling.${fouling.status}`)}</p>
             <p className="text-muted-foreground">
-              Historique : {fouling.days_covered.toFixed(1)} jour{fouling.days_covered >= 2 ? "s" : ""}
-              {fouling.status !== "insufficient" && ` · écart de vitesse ${fouling.drop_percent >= 0 ? "-" : "+"}${Math.abs(fouling.drop_percent).toFixed(1)} % sur ${fouling.buckets} tranche${fouling.buckets > 1 ? "s" : ""} de consigne`}
+              {t("history.fouling.coverage", { count: fouling.days_covered >= 2 ? 2 : 1, days: fouling.days_covered.toFixed(1) })}
+              {fouling.status !== "insufficient" &&
+                t("history.fouling.gap", {
+                  count: fouling.buckets,
+                  sign: fouling.drop_percent >= 0 ? "-" : "+",
+                  drop: Math.abs(fouling.drop_percent).toFixed(1),
+                })}
             </p>
           </>
         )}
@@ -132,26 +131,33 @@ function FoulingCard({ fouling }: { fouling: Fouling | null }) {
 }
 
 function BatteryCard({ details }: { details?: BatteryDetails }) {
+  const { t } = useTranslation()
   return (
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2 text-xs">
-          <BatteryMedium className="size-4 text-muted-foreground" /> Santé de la batterie
+          <BatteryMedium className="size-4 text-muted-foreground" /> {t("history.battery.title")}
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-1.5">
         {!details || details.designed_mwh === 0 ? (
-          <p className="text-muted-foreground">Le pilote de batterie ne donne pas ces informations.</p>
+          <p className="text-muted-foreground">{t("history.battery.unavailable")}</p>
         ) : (
           <>
             <p>
-              Capacité à pleine charge : <span className="font-mono">{(details.full_charged_mwh / 1000).toFixed(1)} Wh</span> sur{" "}
-              <span className="font-mono">{(details.designed_mwh / 1000).toFixed(1)} Wh</span> d'origine, soit{" "}
-              <span className="font-mono">{Math.round(100 - details.wear_percent)} %</span> de santé.
+              <Trans
+                i18nKey="history.battery.capacity"
+                values={{
+                  full: (details.full_charged_mwh / 1000).toFixed(1),
+                  design: (details.designed_mwh / 1000).toFixed(1),
+                  health: Math.round(100 - details.wear_percent),
+                }}
+                components={{ mono: <span className="font-mono" /> }}
+              />
             </p>
             <p className="text-muted-foreground">
-              {details.cycle_count > 0 ? `${details.cycle_count} cycles de charge · ` : ""}
-              {details.chemistry ? `Chimie ${details.chemistry} · ` : ""}
+              {details.cycle_count > 0 ? t("history.battery.cycles", { count: details.cycle_count }) : ""}
+              {details.chemistry ? t("history.battery.chemistry", { value: details.chemistry }) : ""}
               {details.voltage_mv > 0 ? `${(details.voltage_mv / 1000).toFixed(2)} V` : ""}
             </p>
           </>
@@ -171,35 +177,36 @@ function Stat({ label, value }: { label: string; value: string }) {
 }
 
 /** « 2 h 05 » ou « 45 min ». */
-function duration(min: number): string {
-  return min >= 60 ? `${Math.floor(min / 60)} h ${String(min % 60).padStart(2, "0")}` : `${min} min`
+function duration(min: number, t: TFunction): string {
+  return min >= 60 ? t("history.day.hm", { h: Math.floor(min / 60), m: String(min % 60).padStart(2, "0") }) : t("history.day.m", { m: min })
 }
 
 /** Résumé des dernières 24 heures : température, charge, batterie. */
 function DayCard({ day }: { day: DaySummary | null }) {
+  const { t } = useTranslation()
   return (
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2 text-xs">
-          <Sun className="size-4 text-muted-foreground" /> Dernières 24 heures
+          <Sun className="size-4 text-muted-foreground" /> {t("history.day.title")}
         </CardTitle>
         <CardDescription>
-          {day && day.samples > 0 ? `Sur ${day.covered_hours.toFixed(1)} h de mesures.` : "Résumé calculé à partir de l'historique."}
+          {day && day.samples > 0 ? t("history.day.covered", { hours: day.covered_hours.toFixed(1) }) : t("history.day.fromHistory")}
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-2">
         {!day || day.samples === 0 ? (
-          <p className="text-muted-foreground">Pas encore de mesures.</p>
+          <p className="text-muted-foreground">{t("history.day.none")}</p>
         ) : (
           <>
-            <Stat label="Température du processeur" value={`moyenne ${day.avg_temp_c.toFixed(0)}° · maximum ${day.max_temp_c}°`} />
-            <Stat label="À 70° ou plus" value={duration(day.minutes_above_70)} />
-            <Stat label="Processeur à plus de 80 % de charge" value={day.minutes_high_load > 0 ? duration(day.minutes_high_load) : "—"} />
-            {day.max_gpu_temp_c > 0 && <Stat label="Carte graphique, maximum" value={`${day.max_gpu_temp_c}°`} />}
-            <Stat label="Sur batterie" value={day.minutes_on_battery > 0 ? duration(day.minutes_on_battery) : "—"} />
-            {day.battery_used_wh > 0 && <Stat label="Énergie tirée de la batterie" value={`${day.battery_used_wh.toFixed(1)} Wh`} />}
-            {day.battery_charged_wh > 0 && <Stat label="Énergie rechargée" value={`${day.battery_charged_wh.toFixed(1)} Wh`} />}
-            <p className="text-muted-foreground">La charge du processeur n'est mesurée que lorsque l'interface est ouverte.</p>
+            <Stat label={t("history.day.cpuTemp")} value={t("history.day.cpuTempValue", { avg: day.avg_temp_c.toFixed(0), max: day.max_temp_c })} />
+            <Stat label={t("history.day.above70")} value={duration(day.minutes_above_70, t)} />
+            <Stat label={t("history.day.highLoad")} value={day.minutes_high_load > 0 ? duration(day.minutes_high_load, t) : "—"} />
+            {day.max_gpu_temp_c > 0 && <Stat label={t("history.day.gpuMax")} value={`${day.max_gpu_temp_c}°`} />}
+            <Stat label={t("history.day.onBattery")} value={day.minutes_on_battery > 0 ? duration(day.minutes_on_battery, t) : "—"} />
+            {day.battery_used_wh > 0 && <Stat label={t("history.day.used")} value={`${day.battery_used_wh.toFixed(1)} Wh`} />}
+            {day.battery_charged_wh > 0 && <Stat label={t("history.day.charged")} value={`${day.battery_charged_wh.toFixed(1)} Wh`} />}
+            <p className="text-muted-foreground">{t("history.day.note")}</p>
           </>
         )}
       </CardContent>
@@ -209,6 +216,7 @@ function DayCard({ day }: { day: DaySummary | null }) {
 
 /** Historique long : courbes sur plusieurs jours, diagnostic d'encrassement et santé de la batterie. */
 export function HistoryTab({ batteryDetails }: { batteryDetails?: BatteryDetails }) {
+  const { t } = useTranslation()
   const [hours, setHours] = useState(24)
   const [enabled, setEnabled] = useState<Set<string>>(() => new Set(SERIES.filter((s) => s.on).map((s) => s.id)))
   const fetchSamples = useCallback(() => api.history(hours), [hours])
@@ -233,25 +241,23 @@ export function HistoryTab({ batteryDetails }: { batteryDetails?: BatteryDetails
         <CardHeader className="flex flex-row items-center justify-between gap-4">
           <div className="space-y-1">
             <CardTitle className="flex items-center gap-2 text-xs">
-              <HistoryIcon className="size-4 text-muted-foreground" /> Historique
+              <HistoryIcon className="size-4 text-muted-foreground" /> {t("history.title")}
             </CardTitle>
-            <CardDescription>
-              Une mesure toutes les 30 s, enregistrée par le contrôleur même fenêtre fermée, conservée 14 jours. Les mesures de la carte graphique n'existent que lorsque l'interface était ouverte et la carte allumée.
-            </CardDescription>
+            <CardDescription>{t("history.subtitle")}</CardDescription>
           </div>
           <div className="flex shrink-0 gap-1">
             {RANGES.map((r) => (
               <Button key={r.hours} size="sm" variant={hours === r.hours ? "default" : "outline"} onClick={() => setHours(r.hours)}>
-                {r.label}
+                {t(`history.ranges.${r.key}`)}
               </Button>
             ))}
           </div>
         </CardHeader>
         <CardContent className="space-y-3">
           {!samples ? (
-            <p className="text-muted-foreground">Lecture en cours… Si cela dure, le contrôleur est peut-être trop ancien pour cette fonction.</p>
+            <p className="text-muted-foreground">{t("history.loading")}</p>
           ) : samples.length < 2 ? (
-            <p className="text-muted-foreground">Pas encore de mesures : l'historique se remplit au fil du temps, une mesure toutes les 30 s.</p>
+            <p className="text-muted-foreground">{t("history.empty")}</p>
           ) : (
             <>
               <Timeline samples={samples} hours={hours} enabled={enabled} />
@@ -270,15 +276,13 @@ export function HistoryTab({ batteryDetails }: { batteryDetails?: BatteryDetails
                       )}
                     >
                       <i className="inline-block h-0.5 w-4" style={{ background: s.color, opacity: isOn ? 1 : 0.35 }} />
-                      {s.label}
+                      {t(`history.series.${s.id}`)}
                     </button>
                   )
                 })}
               </div>
               {stat && (
-                <p className="text-muted-foreground">
-                  Température CPU sur la période : minimum {stat.min}° · moyenne {stat.avg.toFixed(0)}° · maximum {stat.max}°
-                </p>
+                <p className="text-muted-foreground">{t("history.tempStats", { min: stat.min, avg: stat.avg.toFixed(0), max: stat.max })}</p>
               )}
             </>
           )}

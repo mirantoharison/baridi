@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react"
 import { Gauge, Hand, Power, Sparkles } from "lucide-react"
+import { useTranslation } from "react-i18next"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Slider } from "@/components/ui/slider"
@@ -8,10 +9,10 @@ import type { FanMode } from "@/lib/api"
 import { manualSpeedWarning, stopWarning } from "@/lib/guards"
 import { cn } from "@/lib/utils"
 
-const MODES: { id: FanMode; label: string; icon: typeof Sparkles }[] = [
-  { id: "auto", label: "Auto", icon: Sparkles },
-  { id: "manual", label: "Manuel", icon: Hand },
-  { id: "idle", label: "Arrêt", icon: Power },
+const MODES: { id: FanMode; icon: typeof Sparkles }[] = [
+  { id: "auto", icon: Sparkles },
+  { id: "manual", icon: Hand },
+  { id: "idle", icon: Power },
 ]
 
 const PRESETS = [25, 50, 75, 100]
@@ -36,6 +37,7 @@ interface Pending {
 
 /** Choix du mode ; le curseur manuel n'apparaît qu'en mode Manuel (envoi différé pour ne pas inonder le contrôleur). */
 export function ControlCard({ mode, percent, temp, onAuto, onManual, onStop }: Props) {
+  const { t } = useTranslation()
   const [value, setValue] = useState(percent)
   const [pending, setPending] = useState<Pending | null>(null)
   const dragging = useRef(false)
@@ -55,7 +57,7 @@ export function ControlCard({ mode, percent, temp, onAuto, onManual, onStop }: P
   const sendManual = (v: number) => {
     const warning = tempRef.current === undefined ? null : manualSpeedWarning(tempRef.current, v)
     if (!warning) return onManual(v)
-    setPending({ title: "Vitesse manuelle faible", message: warning, run: () => onManual(v), revert: () => setValue(percentRef.current) })
+    setPending({ title: t("control.guards.lowSpeedTitle"), message: warning, run: () => onManual(v), revert: () => setValue(percentRef.current) })
   }
 
   const commit = (v: number) => {
@@ -72,7 +74,7 @@ export function ControlCard({ mode, percent, temp, onAuto, onManual, onStop }: P
     if (id === "auto") onAuto()
     else if (id === "idle") {
       const warning = temp === undefined ? null : stopWarning(temp)
-      if (warning) setPending({ title: "Couper le pilotage automatique ?", message: warning, run: onStop })
+      if (warning) setPending({ title: t("control.guards.stopTitle"), message: warning, run: onStop })
       else onStop()
     } else sendManual(value)
   }
@@ -81,12 +83,12 @@ export function ControlCard({ mode, percent, temp, onAuto, onManual, onStop }: P
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2 text-xs">
-          <Gauge className="size-4 text-muted-foreground" /> Pilotage
+          <Gauge className="size-4 text-muted-foreground" /> {t("control.card.title")}
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="grid grid-cols-3 gap-1 rounded-none bg-muted p-1">
-          {MODES.map(({ id, label, icon: Icon }) => (
+          {MODES.map(({ id, icon: Icon }) => (
             <button
               key={id}
               onClick={() => select(id)}
@@ -96,7 +98,7 @@ export function ControlCard({ mode, percent, temp, onAuto, onManual, onStop }: P
               )}
             >
               <Icon className="size-4" />
-              {label}
+              {t(`control.card.modes.${id}`)}
             </button>
           ))}
         </div>
@@ -104,7 +106,7 @@ export function ControlCard({ mode, percent, temp, onAuto, onManual, onStop }: P
         {mode === "manual" ? (
           <div className="space-y-3">
             <div className="flex items-baseline justify-between">
-              <span className="text-muted-foreground">Vitesse manuelle</span>
+              <span className="text-muted-foreground">{t("control.card.manualSpeed")}</span>
               <span className="font-mono text-base font-semibold tabular-nums">{value}%</span>
             </div>
             <Slider value={[value]} min={0} max={100} step={5} onValueChange={(v) => commit(Array.isArray(v) ? v[0] : v)} />
@@ -118,9 +120,7 @@ export function ControlCard({ mode, percent, temp, onAuto, onManual, onStop }: P
           </div>
         ) : (
           <p className="text-muted-foreground">
-            {mode === "auto"
-              ? "Le mode Auto est actif : toutes les 2 secondes, le contrôleur relève la température du processeur, détermine la vitesse prévue par la courbe du profil actif, puis y amène progressivement le ventilateur, par petites étapes pour éviter les changements de régime brutaux. Tu n'as rien à régler ici : change simplement de profil actif ci-dessous si tu veux un comportement plus silencieux ou plus rafraîchissant. Choisis Manuel si tu veux fixer toi-même la vitesse, par exemple pour un test de bruit ou pour forcer un refroidissement maximal avant une tâche lourde ; le curseur apparaîtra alors à cet endroit."
-              : "Le pilotage automatique est coupé : le contrôleur ne lit plus la température pour ajuster la vitesse, et le ventilateur reste sur la dernière vitesse appliquée jusqu'à ton prochain choix, sans que le comportement d'origine de la machine reprenne la main. Garde un œil sur la température dans l'onglet Info, car rien ne la fera redescendre tant que tu n'as pas relancé le mode Auto ou fixé une vitesse en mode Manuel. Si tu comptes laisser l'ordinateur sans surveillance, repasse en Auto : c'est le mode le plus sûr, puisque la vitesse s'adapte alors à la température à chaque instant."}
+            {mode === "auto" ? t("control.card.autoText") : t("control.card.idleText")}
           </p>
         )}
       </CardContent>
