@@ -1,4 +1,5 @@
 import { useEffect, useRef } from "react"
+import i18n from "@/i18n"
 import { call, isTauri } from "@/lib/tauri"
 import type { FanStatus } from "@/lib/api"
 
@@ -43,25 +44,34 @@ function drawIcon(label: string, color: string): number[] {
 export function useTrayIcon(status: FanStatus | null, online: boolean) {
   const lastRef = useRef("")
 
+  // Menu de l'icône (« Afficher » / « Quitter ») : retraduit au démarrage et à chaque changement de langue.
+  useEffect(() => {
+    if (!isTauri) return
+    call("set_tray_menu", { show: i18n.t("common.tray.show"), quit: i18n.t("common.tray.quit") }).catch(() => {})
+  }, [i18n.language])
+
   const temp = status?.temp_c
   const profile = status?.profile
   const rpm = status?.rpm
   const battery = status?.battery
-  const batteryText = battery ? `${battery.percent} %${battery.plugged_in ? " (secteur)" : ""}` : ""
+  const batteryText = battery ? `${battery.percent} %${battery.plugged_in ? ` ${i18n.t("common.tray.ac")}` : ""}` : ""
 
   useEffect(() => {
     if (!isTauri) return
     const hasTemp = online && temp !== undefined && temp > 0
     const label = hasTemp ? String(temp) : "--"
     const color = hasTemp ? barColor(temp) : OFFLINE
+    const t = i18n.t.bind(i18n)
+    const name = t("common.appName")
     const tooltip = hasTemp
-      ? `Baridi - Fancontroller\n${temp} °C · ${rpm ?? 0} RPM · profil ${profile ?? "?"}${batteryText ? `\nBatterie ${batteryText}` : ""}`
-      : "Baridi - Fancontroller\nContrôleur injoignable"
+      ? `${name}\n${t("common.tray.tooltip", { temp, rpm: rpm ?? 0, profile: profile ?? "?" })}${batteryText ? `\n${t("common.tray.battery", { value: batteryText })}` : ""}`
+      : `${name}\n${t("common.tray.unreachable")}`
     const key = `${label}|${color}|${tooltip}`
     if (key === lastRef.current) return
     lastRef.current = key
     call("set_tray", { rgba: drawIcon(label, color), width: SIZE, height: SIZE, tooltip }).catch(() => {
       lastRef.current = "" // échec : on réessaiera au prochain changement
     })
-  }, [online, temp, rpm, profile, batteryText])
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- la langue fait partie de la clé de mise en cache ci-dessus
+  }, [online, temp, rpm, profile, batteryText, i18n.language])
 }

@@ -1,5 +1,6 @@
 import { useEffect, useRef } from "react"
 import { isPermissionGranted, requestPermission, sendNotification } from "@tauri-apps/plugin-notification"
+import i18n from "@/i18n"
 import { isTauri } from "@/lib/tauri"
 import { usePrefs } from "@/lib/prefs"
 import type { FanStatus } from "@/lib/api"
@@ -58,9 +59,9 @@ export function useThermalAlerts(status: FanStatus | null, online: boolean) {
     // IMPORTANT : l'alerte critique ignore la pause — mettre les alertes en sourdine pendant une partie ne doit
     // jamais masquer une vraie surchauffe.
     if (next === "critical") {
-      notify("Température critique", `Le processeur est à ${temp}° (seuil ${alerts.criticalTemp}°). Vérifie le ventilateur et le profil actif.`)
+      notify(i18n.t("common.notify.criticalTitle"), i18n.t("common.notify.criticalBody", { temp, threshold: alerts.criticalTemp }))
     } else if (next === "warn" && previous === "ok" && !isSnoozed()) {
-      notify("Température élevée", `Le processeur est à ${temp}° (seuil ${alerts.warnTemp}°).`)
+      notify(i18n.t("common.notify.warnTitle"), i18n.t("common.notify.warnBody", { temp, threshold: alerts.warnTemp }))
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- isSnoozed ne lit qu'une ref
   }, [temp, alerts.enabled, alerts.warnTemp, alerts.criticalTemp])
@@ -85,9 +86,9 @@ export function useThermalAlerts(status: FanStatus | null, online: boolean) {
     gpuLevelRef.current = next
     if (next === previous) return
     if (next === "critical") {
-      notify("Carte graphique : température critique", `La carte est à ${gpuTemp}° (seuil ${alerts.gpuCriticalTemp}°).`)
+      notify(i18n.t("common.notify.gpuCriticalTitle"), i18n.t("common.notify.gpuCriticalBody", { temp: gpuTemp, threshold: alerts.gpuCriticalTemp }))
     } else if (next === "warn" && previous === "ok" && !isSnoozed()) {
-      notify("Carte graphique : température élevée", `La carte est à ${gpuTemp}° (seuil ${alerts.gpuWarnTemp}°).`)
+      notify(i18n.t("common.notify.gpuWarnTitle"), i18n.t("common.notify.gpuWarnBody", { temp: gpuTemp, threshold: alerts.gpuWarnTemp }))
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- isSnoozed ne lit qu'une ref
   }, [gpuTemp, alerts.enabled, alerts.gpuEnabled, alerts.gpuWarnTemp, alerts.gpuCriticalTemp])
@@ -99,14 +100,14 @@ export function useThermalAlerts(status: FanStatus | null, online: boolean) {
     if (online) {
       if (wasLostRef.current) {
         wasLostRef.current = false
-        if (!isSnoozed()) notify("Contrôleur reconnecté", "Le pilotage du ventilateur a repris.")
+        if (!isSnoozed()) notify(i18n.t("common.notify.reconnectedTitle"), i18n.t("common.notify.reconnectedBody"))
       }
       return
     }
     const timer = setTimeout(() => {
       // La perte est marquée même en pause : sans ça, la « reprise » ne serait jamais détectée ensuite.
       wasLostRef.current = true
-      if (!isSnoozed()) notify("Contrôleur injoignable", "Le ventilateur garde sa dernière vitesse tant que le contrôleur ne répond pas.")
+      if (!isSnoozed()) notify(i18n.t("common.notify.lostTitle"), i18n.t("common.notify.lostBody"))
     }, DISCONNECT_GRACE_MS)
     return () => clearTimeout(timer)
     // eslint-disable-next-line react-hooks/exhaustive-deps -- isSnoozed ne lit qu'une ref

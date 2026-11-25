@@ -63,6 +63,19 @@ fn read_api_key() -> Result<String, String> {
 
 const TRAY_ID: &str = "main";
 
+/// Entrées du menu de l'icône, gardées pour pouvoir changer leur texte quand l'utilisateur change de langue.
+struct TrayMenu {
+    show: MenuItem<tauri::Wry>,
+    quit: MenuItem<tauri::Wry>,
+}
+
+/// Traduit le menu de l'icône de la zone de notification (appelée par l'interface au démarrage et à chaque changement de langue).
+#[tauri::command]
+fn set_tray_menu(menu: tauri::State<TrayMenu>, show: String, quit: String) -> Result<(), String> {
+    menu.show.set_text(show).map_err(|e| e.to_string())?;
+    menu.quit.set_text(quit).map_err(|e| e.to_string())
+}
+
 /// Met à jour l'icône et l'infobulle de la zone de notification (appelée par l'interface quand la température change).
 /// `rgba` : width × height × 4 octets, dessinés côté interface.
 #[tauri::command]
@@ -360,7 +373,7 @@ pub fn run() {
         // de dupliquer en Rust la logique « profil suivant » qui vit déjà dans le hook useFan.
         .plugin(tauri_plugin_global_shortcut::Builder::new().build())
         .manage(Session(session))
-        .invoke_handler(tauri::generate_handler![session_id, service_status, service_set, autostart_status, autostart_set, open_config_dir, api_key, set_tray])
+        .invoke_handler(tauri::generate_handler![session_id, service_status, service_set, autostart_status, autostart_set, open_config_dir, api_key, set_tray, set_tray_menu])
         // Croix de la fenêtre et Alt+F4 passent tous deux par CloseRequested : on masque au lieu de fermer.
         .on_window_event(|window, event| {
             if let WindowEvent::CloseRequested { api, .. } = event {
@@ -382,6 +395,7 @@ pub fn run() {
             let show = MenuItem::with_id(app, "show", "Afficher Baridi - Fancontroller", true, None::<&str>)?;
             let quit = MenuItem::with_id(app, "quit", "Quitter", true, None::<&str>)?;
             let menu = Menu::with_items(app, &[&show, &quit])?;
+            app.manage(TrayMenu { show: show.clone(), quit: quit.clone() });
             TrayIconBuilder::with_id(TRAY_ID)
                 .icon(icon.clone())
                 .tooltip("Baridi - Fancontroller")

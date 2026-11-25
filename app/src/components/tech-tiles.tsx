@@ -1,3 +1,5 @@
+import { useTranslation } from "react-i18next"
+
 // IMPORTANT : logos Simple Icons (CC0) copiés dans assets/tech, donc embarqués dans l'application : la page s'affiche
 // à l'identique hors ligne. Le nom du fichier est le « slug » de la techno.
 const ICONS = import.meta.glob<string>("../assets/tech/*.svg", { eager: true, query: "?url", import: "default" })
@@ -12,15 +14,14 @@ interface Tech {
 }
 
 interface TechGroup {
-  title: string
-  text: string
+  /** Clé de traduction du titre et du texte (about.tech.<key>). */
+  key: string
   items: Tech[]
 }
 
 const GROUPS: TechGroup[] = [
   {
-    title: "Interface",
-    text: "Les pages que tu vois, construites en composants.",
+    key: "interface",
     items: [
       { name: "React 19", slug: "react", color: "#61DAFB", spin: true },
       { name: "TypeScript", slug: "typescript", color: "#3178C6" },
@@ -30,29 +31,25 @@ const GROUPS: TechGroup[] = [
     ],
   },
   {
-    title: "Application de bureau",
-    text: "Fenêtre, zone de notification et instance unique.",
+    key: "desktop",
     items: [
       { name: "Tauri 2", slug: "tauri", color: "#24C8D8" },
       { name: "Rust", slug: "rust" },
     ],
   },
   {
-    title: "Contrôleur",
-    text: "Courbes, API locale sur 127.0.0.1:8787 et service Windows.",
+    key: "controller",
     items: [{ name: "Go", slug: "go", color: "#00ADD8" }],
   },
   {
-    title: "Matériel",
-    text: "Température et ventilateurs via la DLL ASUS ; GPU via NVML.",
+    key: "hardware",
     items: [
       { name: "ASUS", slug: "asus" },
       { name: "NVIDIA", slug: "nvidia", color: "#76B900" },
     ],
   },
   {
-    title: "Conçu avec",
-    text: "L'assistant de code qui a aidé à écrire l'application.",
+    key: "builtWith",
     items: [{ name: "Claude Code", slug: "claudecode", color: "#D97757" }],
   },
 ]
@@ -76,13 +73,14 @@ function Tile({ tech, index }: { tech: Tech; index: number }) {
 
 /** Technologies regroupées par domaine, chaque techno est une tuile animée (flottement, reflet et rotation au survol). */
 export function TechTiles() {
+  const { t } = useTranslation()
   let index = 0
   return (
     <div className="grid grid-cols-[repeat(auto-fill,minmax(230px,1fr))] gap-3">
       {GROUPS.map((g) => (
-        <div key={g.title} className="rounded-none border bg-muted/30 p-3">
-          <h3 className="font-semibold">{g.title}</h3>
-          <p className="mb-3 mt-0.5 text-muted-foreground">{g.text}</p>
+        <div key={g.key} className="rounded-none border bg-muted/30 p-3">
+          <h3 className="font-semibold">{t(`about.tech.${g.key}.title`)}</h3>
+          <p className="mb-3 mt-0.5 text-muted-foreground">{t(`about.tech.${g.key}.text`)}</p>
           <div className="flex flex-wrap gap-2">
             {g.items.map((t) => (
               <Tile key={t.slug} tech={t} index={index++} />

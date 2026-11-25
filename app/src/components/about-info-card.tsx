@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react"
 import { ClipboardCopy, FolderOpen } from "lucide-react"
+import { useTranslation } from "react-i18next"
+import type { TFunction } from "i18next"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { api, type ControllerInfo } from "@/lib/api"
@@ -9,29 +11,30 @@ import { call, isTauri } from "@/lib/tauri"
 const REFRESH_MS = 30_000
 
 /** « 2 j 3 h 12 min » : les unités nulles de tête sont omises. */
-function formatUptime(totalSeconds: number): string {
+function formatUptime(totalSeconds: number, t: TFunction): string {
   const days = Math.floor(totalSeconds / 86_400)
   const hours = Math.floor((totalSeconds % 86_400) / 3600)
   const minutes = Math.floor((totalSeconds % 3600) / 60)
-  const parts = [days && `${days} j`, (days || hours) && `${hours} h`, `${minutes} min`].filter(Boolean)
+  const parts = [days && t("about.info.uptimeD", { n: days }), (days || hours) && t("about.info.uptimeH", { n: hours }), t("about.info.uptimeM", { n: minutes })].filter(Boolean)
   return parts.join(" ")
 }
 
-function rowsOf(info: ControllerInfo): [string, string][] {
+function rowsOf(info: ControllerInfo, t: TFunction): [string, string][] {
   return [
-    ["Version du contrôleur", info.version],
-    ["Exécution", info.service ? "Service Windows" : "Lancé par l'application"],
-    ["Ventilateurs (selon la DLL)", info.fan_count === undefined ? "inconnu" : info.fan_count < 0 ? "non précisé par la DLL" : String(info.fan_count)],
-    ["Identifiant du processus", String(info.pid)],
-    ["En marche depuis", formatUptime(info.uptime_s)],
-    ["Dossier", info.dir],
-    ["Réglages", info.settings_path],
-    ["Profils", info.profiles_path],
+    [t("about.info.version"), info.version],
+    [t("about.info.run"), info.service ? t("about.info.service") : t("about.info.launched")],
+    [t("about.info.fans"), info.fan_count === undefined ? t("about.info.unknown") : info.fan_count < 0 ? t("about.info.unspecified") : String(info.fan_count)],
+    [t("about.info.pid"), String(info.pid)],
+    [t("about.info.uptime"), formatUptime(info.uptime_s, t)],
+    [t("about.info.dir"), info.dir],
+    [t("about.info.settings"), info.settings_path],
+    [t("about.info.profiles"), info.profiles_path],
   ]
 }
 
 /** Informations sur le contrôleur en cours d'exécution (version, mode, durée, fichiers) : utile pour dépanner ou demander de l'aide. */
 export function AboutInfoCard() {
+  const { t } = useTranslation()
   const [info, setInfo] = useState<ControllerInfo | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
@@ -60,7 +63,7 @@ export function AboutInfoCard() {
 
   const copy = async () => {
     if (!info) return
-    const text = rowsOf(info).map(([label, value]) => `${label} : ${value}`).join("\n")
+    const text = rowsOf(info, t).map(([label, value]) => `${label} : ${value}`).join("\n")
     try {
       await navigator.clipboard.writeText(text)
       setCopied(true)
@@ -76,20 +79,20 @@ export function AboutInfoCard() {
   return (
     <Card>
       <CardHeader className="flex flex-row items-center justify-between gap-4">
-        <CardTitle className="text-xs">Informations techniques</CardTitle>
+        <CardTitle className="text-xs">{t("about.info.title")}</CardTitle>
         <div className="flex gap-1.5">
           <Button size="sm" variant="outline" onClick={openFolder} disabled={!isTauri}>
-            <FolderOpen /> Ouvrir le dossier
+            <FolderOpen /> {t("about.info.openFolder")}
           </Button>
           <Button size="sm" variant="ghost" onClick={copy} disabled={!info}>
-            <ClipboardCopy /> {copied ? "Copié" : "Copier"}
+            <ClipboardCopy /> {copied ? t("about.info.copied") : t("about.info.copy")}
           </Button>
         </div>
       </CardHeader>
       <CardContent>
         {info ? (
           <ul className="divide-y rounded-none border">
-            {rowsOf(info).map(([label, value]) => (
+            {rowsOf(info, t).map(([label, value]) => (
               <li key={label} className="flex gap-4 p-3">
                 <span className="w-40 shrink-0 font-medium">{label}</span>
                 <span className="min-w-0 break-all font-mono text-muted-foreground">{value}</span>
@@ -98,10 +101,10 @@ export function AboutInfoCard() {
           </ul>
         ) : (
           <p className="text-muted-foreground">
-            {error ? `Informations indisponibles : ${error}. Le contrôleur ne répond pas, ou il est d'une version antérieure à cette fonction.` : "Lecture en cours…"}
+            {error ? t("about.info.unavailable", { error }) : t("about.info.reading")}
           </p>
         )}
-        {!isTauri && <p className="mt-3 text-muted-foreground">L'ouverture du dossier n'est disponible que dans l'application installée.</p>}
+        {!isTauri && <p className="mt-3 text-muted-foreground">{t("about.info.folderOnlyInstalled")}</p>}
       </CardContent>
     </Card>
   )

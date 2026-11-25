@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react"
 import { getVersion } from "@tauri-apps/api/app"
+import { useTranslation } from "react-i18next"
 import { CheckCircle2, Copy, Download, RefreshCw } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -47,6 +48,7 @@ function isNewerVersion(candidate: string, current: string): boolean {
  * part que sur clic : pas de vérification en arrière-plan.
  */
 export function UpdatesTab() {
+  const { t, i18n } = useTranslation()
   const [version, setVersion] = useState(FALLBACK_VERSION)
   const [check, setCheck] = useState<Check>({ kind: "idle" })
   const [isCopied, setIsCopied] = useState(false)
@@ -64,12 +66,12 @@ export function UpdatesTab() {
         setCheck({ kind: "none" }) // dépôt sans release publiée
         return
       }
-      if (!res.ok) throw new Error(res.status === 403 ? "GitHub limite les requêtes, réessaie dans quelques minutes." : `Réponse inattendue de GitHub (${res.status}).`)
+      if (!res.ok) throw new Error(res.status === 403 ? t("about.updates.rateLimit") : t("about.updates.unexpected", { status: res.status }))
       const release = (await res.json()) as Release
       setCheck({ kind: "done", release, isNewer: isNewerVersion(release.tag_name, version) })
     } catch (e) {
       const offline = e instanceof TypeError
-      setCheck({ kind: "error", message: offline ? "Impossible de joindre GitHub : vérifie ta connexion." : (e as Error).message })
+      setCheck({ kind: "error", message: offline ? t("about.updates.offline") : (e as Error).message })
     }
   }
 
@@ -87,28 +89,26 @@ export function UpdatesTab() {
     <div className="flex flex-1 flex-col gap-4">
       <Card>
         <CardHeader>
-          <CardTitle className="text-xs">Mises à jour</CardTitle>
-          <CardDescription>
-            Compare ta version à la dernière release publiée sur GitHub. La vérification ne part que quand tu cliques, et rien n'est installé automatiquement : si une version plus récente existe, tu la télécharges toi-même.
-          </CardDescription>
+          <CardTitle className="text-xs">{t("about.updates.title")}</CardTitle>
+          <CardDescription>{t("about.updates.description")}</CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">
           <div className="flex items-center justify-between gap-4 rounded-none border p-3">
             <div>
-              <div className="font-medium">Version installée</div>
+              <div className="font-medium">{t("about.updates.installed")}</div>
               <div className="font-mono text-muted-foreground">{version}</div>
             </div>
             <Button variant="outline" disabled={check.kind === "loading"} onClick={run}>
               <RefreshCw className={check.kind === "loading" ? "animate-spin" : ""} />
-              {check.kind === "loading" ? "Vérification…" : "Vérifier maintenant"}
+              {check.kind === "loading" ? t("about.updates.checking") : t("about.updates.check")}
             </Button>
           </div>
 
-          {check.kind === "none" && <p className="text-muted-foreground">Aucune release n'est publiée pour le moment : tu as sûrement la dernière version.</p>}
+          {check.kind === "none" && <p className="text-muted-foreground">{t("about.updates.none")}</p>}
           {check.kind === "error" && <p className="text-destructive">{check.message}</p>}
           {check.kind === "done" && !check.isNewer && (
             <p className="flex items-center gap-2 text-muted-foreground">
-              <CheckCircle2 className="size-4" /> Tu es à jour (dernière release : {check.release.tag_name}).
+              <CheckCircle2 className="size-4" /> {t("about.updates.upToDate", { tag: check.release.tag_name })}
             </p>
           )}
         </CardContent>
@@ -118,10 +118,10 @@ export function UpdatesTab() {
         <Card className="flex-1">
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-xs">
-              <Download className="size-4 text-muted-foreground" /> Version {check.release.tag_name} disponible
+              <Download className="size-4 text-muted-foreground" /> {t("about.updates.available", { tag: check.release.tag_name })}
             </CardTitle>
             {check.release.published_at && (
-              <CardDescription>Publiée le {new Date(check.release.published_at).toLocaleDateString("fr-FR", { dateStyle: "long" })}</CardDescription>
+              <CardDescription>{t("about.updates.publishedOn", { date: new Date(check.release.published_at).toLocaleDateString(i18n.language, { dateStyle: "long" }) })}</CardDescription>
             )}
           </CardHeader>
           <CardContent className="space-y-3">
@@ -129,14 +129,14 @@ export function UpdatesTab() {
               // Notes de version affichées en texte brut : jamais interprétées comme du HTML.
               <pre className="whitespace-pre-wrap rounded-none border p-3 font-sans text-muted-foreground">{check.release.body.trim()}</pre>
             ) : (
-              <p className="text-muted-foreground">Cette release n'a pas de notes de version.</p>
+              <p className="text-muted-foreground">{t("about.updates.noNotes")}</p>
             )}
             <div className="flex flex-wrap items-center gap-2">
               <a href={check.release.html_url} target="_blank" rel="noreferrer" className="text-foreground underline-offset-4 hover:underline">
                 {check.release.html_url}
               </a>
               <Button size="sm" variant="outline" onClick={() => copy(check.release.html_url)}>
-                <Copy /> {isCopied ? "Copié" : "Copier le lien"}
+                <Copy /> {isCopied ? t("about.updates.copied") : t("about.updates.copyLink")}
               </Button>
             </div>
           </CardContent>

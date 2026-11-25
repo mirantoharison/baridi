@@ -1,5 +1,6 @@
 import { useState } from "react"
 import { ChevronRight, ClipboardCopy, Trash2 } from "lucide-react"
+import { Trans, useTranslation } from "react-i18next"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { ScrollArea } from "@/components/ui/scroll-area"
@@ -45,6 +46,7 @@ function CodeBlock({ text }: { text: string }) {
 
 /** Détails d'une requête consignée : ce qui a été envoyé, ce qui est revenu, et de quoi copier l'un ou l'autre. */
 function LogDetails({ entry }: { entry: LogEntry }) {
+  const { t, i18n } = useTranslation()
   const [copied, setCopied] = useState<string | null>(null)
   const curl = toCurl(entry)
   const response = entry.response ? prettyJson(entry.response) : null
@@ -64,7 +66,7 @@ function LogDetails({ entry }: { entry: LogEntry }) {
   return (
     <div className="space-y-3 border-t border-border/60 px-3 pb-3 pt-2.5 text-xs">
       <div>
-        <div className={label}>Requête</div>
+        <div className={label}>{t("logs.request")}</div>
         <div className="break-all font-semibold">
           {entry.method} <span className="font-normal text-muted-foreground">{BASE_URL}</span>
           {entry.path}
@@ -77,18 +79,18 @@ function LogDetails({ entry }: { entry: LogEntry }) {
       </div>
 
       <div>
-        <div className={label}>Réponse</div>
+        <div className={label}>{t("logs.response")}</div>
         <div className="mb-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-muted-foreground">
           <span>
-            Code <b className="font-semibold text-foreground">{String(entry.status)}</b>
+            {t("logs.code")} <b className="font-semibold text-foreground">{String(entry.status)}</b>
           </span>
           {entry.ms !== undefined && (
             <span>
-              Durée <b className="font-semibold text-foreground">{entry.ms} ms</b>
+              {t("logs.duration")} <b className="font-semibold text-foreground">{entry.ms} ms</b>
             </span>
           )}
           <span>
-            Heure <b className="font-semibold text-foreground">{new Date(entry.t).toLocaleString("fr-FR")}</b>
+            {t("logs.time")} <b className="font-semibold text-foreground">{new Date(entry.t).toLocaleString(i18n.language)}</b>
           </span>
         </div>
         {entry.error && <div className="mb-1.5 text-rose-600 dark:text-rose-400">{entry.error}</div>}
@@ -96,7 +98,7 @@ function LogDetails({ entry }: { entry: LogEntry }) {
           <CodeBlock text={response} />
         ) : (
           <div className="text-muted-foreground">
-            {entry.method === "SSE" ? "Flux de mesures en continu : le contenu n'est pas consigné (une mesure par seconde)." : "Aucun contenu dans la réponse."}
+            {entry.method === "SSE" ? t("logs.sseNoContent") : t("logs.noContent")}
           </div>
         )}
       </div>
@@ -104,12 +106,12 @@ function LogDetails({ entry }: { entry: LogEntry }) {
       <div className="flex flex-wrap gap-2">
         {curl && (
           <Button size="sm" variant="outline" onClick={() => copy("curl", curl)}>
-            <ClipboardCopy /> {copied === "curl" ? "Copié" : "Copier en curl"}
+            <ClipboardCopy /> {copied === "curl" ? t("logs.copied") : t("logs.copyCurl")}
           </Button>
         )}
         {response && (
           <Button size="sm" variant="outline" onClick={() => copy("response", response)}>
-            <ClipboardCopy /> {copied === "response" ? "Copié" : "Copier la réponse"}
+            <ClipboardCopy /> {copied === "response" ? t("logs.copied") : t("logs.copyResponse")}
           </Button>
         )}
       </div>
@@ -117,9 +119,9 @@ function LogDetails({ entry }: { entry: LogEntry }) {
   )
 }
 
-const time = (t: number) => {
-  const d = new Date(t)
-  return d.toLocaleTimeString("fr-FR", { hour12: false }) + "." + String(d.getMilliseconds()).padStart(3, "0")
+const time = (ts: number, locale: string) => {
+  const d = new Date(ts)
+  return d.toLocaleTimeString(locale, { hour12: false }) + "." + String(d.getMilliseconds()).padStart(3, "0")
 }
 
 /** Issue d'une ligne : « ok » (accepté ou flux ouvert), « error » (refusé, injoignable ou flux perdu). */
@@ -190,6 +192,7 @@ function PathText({ path }: { path: string }) {
 
 /** Journal des requêtes envoyées au contrôleur (les plus récentes en haut). */
 export function LogsTab() {
+  const { t, i18n } = useTranslation()
   const entries = useRequestLog()
   const rows = [...entries].reverse()
   // Une seule ligne dépliée à la fois : l'id d'une entrée est stable, la ligne reste ouverte quand de nouvelles arrivent.
@@ -197,20 +200,14 @@ export function LogsTab() {
 
   return (
     <div className="flex h-full flex-col gap-4">
-      <InfoNote
-        summary={
-          <>
-            Ce journal liste <b>toutes les requêtes envoyées au contrôleur</b> depuis l'ouverture de l'application : changement de mode, vitesse manuelle, choix d'un profil, création ou suppression d'un profil, chargement de la liste des profils, ainsi que l'ouverture et la perte du flux de mesures en direct. Pour chaque ligne, tu vois l'heure précise à la milliseconde, la méthode et le chemin appelés, le corps envoyé le cas échéant, le code de réponse et le temps de réponse en millisecondes. Les lignes les plus récentes sont en haut. C'est l'outil à consulter quand le ventilateur ne réagit pas comme tu l'attendais : il permet de savoir si l'application a bien envoyé l'ordre, à quel moment, et si le contrôleur l'a accepté ou refusé.
-          </>
-        }
-      >
-        Les mesures reçues chaque seconde ne sont volontairement pas consignées, sinon elles noieraient les actions utiles en quelques minutes. De même, une perte de connexion n'est consignée qu'une seule fois, et non à chaque tentative de reconnexion. Le journal est stocké dans le <b>localStorage</b> de la fenêtre et plafonné à <b>{MAX_LOG_LINES} lignes</b> : au-delà, les plus anciennes sont supprimées une à une pour faire de la place aux nouvelles. Il est <b>entièrement effacé à la fermeture réelle</b> de l'application, c'est-à-dire avec « Quitter » dans le menu de la zone de notification, et jamais simplement quand tu réduis la fenêtre ou que tu cliques sur la croix. Si l'application s'est arrêtée brutalement, par exemple lors d'un plantage ou d'une extinction forcée, le journal de la session précédente est jeté au lancement suivant plutôt que mélangé à la nouvelle session. Un code accepté reste discret, une erreur renvoyée par le contrôleur apparaît en rose, et « ERR » signifie que la requête n'a même pas pu l'atteindre, parce que le contrôleur est arrêté ou pas encore démarré. La durée reste grise tant que le contrôleur répond en moins de 100 ms, puis passe à l'orange et au rose. Les lignes « SSE » signalent l'ouverture (OPEN) ou la perte (LOST) du flux de mesures. <b>Clique sur une ligne</b> pour en voir les détails : l'adresse complète, le corps envoyé et la réponse du contrôleur mis en forme (tronquée à 2000 caractères), avec de quoi copier la requête en commande curl ou la réponse. Le bouton « Vider » efface le journal immédiatement.
+      <InfoNote summary={<Trans i18nKey="logs.summary" components={{ b: <b /> }} />}>
+        <Trans i18nKey="logs.details" values={{ max: MAX_LOG_LINES }} components={{ b: <b /> }} />
       </InfoNote>
 
       <Card className="min-h-0 flex-1">
         <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle className="flex items-center gap-2 text-xs">
-            Requêtes envoyées
+            {t("logs.title")}
             <span className="rounded-full bg-sky-500/15 px-2 py-0.5 font-mono font-semibold tabular-nums text-sky-600 ring-1 ring-sky-500/40 dark:text-sky-300">
               {entries.length}/{MAX_LOG_LINES}
             </span>
@@ -222,12 +219,12 @@ export function LogsTab() {
             onClick={() => requestLog.clear()}
             disabled={entries.length === 0}
           >
-            <Trash2 /> Vider
+            <Trash2 /> {t("logs.clear")}
           </Button>
         </CardHeader>
         <CardContent className="relative min-h-0 flex-1">
           {rows.length === 0 ? (
-            <p className="m-auto py-8 text-center text-muted-foreground">Aucune requête pour l'instant.</p>
+            <p className="m-auto py-8 text-center text-muted-foreground">{t("logs.empty")}</p>
           ) : (
             <div className="absolute inset-x-4 inset-y-0">
               <ScrollArea className="h-full">
@@ -240,11 +237,11 @@ export function LogsTab() {
                         <button
                           type="button"
                           aria-expanded={open}
-                          title={open ? "Masquer les détails" : "Afficher les détails de la requête"}
+                          title={open ? t("logs.hideDetails") : t("logs.showDetails")}
                           onClick={() => setOpenId(open ? null : e.id)}
                           className="flex w-full items-center gap-3 rounded-md px-2.5 py-1.5 text-left outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
                         >
-                        <span className="shrink-0 tabular-nums text-violet-600/80 dark:text-violet-300/70">{time(e.t)}</span>
+                        <span className="shrink-0 tabular-nums text-violet-600/80 dark:text-violet-300/70">{time(e.t, i18n.language)}</span>
                         <span className="w-[4.25rem] shrink-0">
                           <span className="inline-flex w-16 items-center justify-center gap-1.5 rounded-md bg-muted py-0.5 text-[9px] font-bold uppercase tracking-wide text-foreground/80 ring-1 ring-border">
                             <span className={cn("size-1.5 rounded-full", methodDotClass(e.method))} />

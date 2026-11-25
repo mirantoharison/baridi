@@ -82,7 +82,7 @@ export function MachineCard() {
           <>
             {info.manufacturer && <Row label={t("info.machine.manufacturer")} value={info.manufacturer} />}
             {info.bios_version && <Row label={t("info.machine.bios")} value={`${info.bios_version}${info.bios_date ? ` · ${info.bios_date}` : ""}`} />}
-            {info.power_plan && <Row label={t("info.machine.powerPlan")} value={info.power_plan} />}
+            {info.power_plan && <Row label={t("info.machine.powerPlan")} value={t(`control.powerPlan.plans.${info.power_plan}`, { defaultValue: info.power_plan })} />}
             <Row label={t("info.machine.uptime")} value={formatDuration(info.uptime_s, t)} />
           </>
         )}

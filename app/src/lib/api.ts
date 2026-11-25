@@ -1,3 +1,4 @@
+import i18n from "@/i18n"
 import { forgetApiKey, getApiKey } from "@/lib/api-key"
 import { requestLog } from "@/lib/request-log"
 
@@ -367,7 +368,7 @@ const MAX_LOGGED_RESPONSE_CHARS = 2000
 
 function clipForLog(text: string): string | undefined {
   if (!text) return undefined
-  return text.length > MAX_LOGGED_RESPONSE_CHARS ? `${text.slice(0, MAX_LOGGED_RESPONSE_CHARS)}… (tronqué)` : text
+  return text.length > MAX_LOGGED_RESPONSE_CHARS ? `${text.slice(0, MAX_LOGGED_RESPONSE_CHARS)}… ${i18n.t("common.errors.truncated")}` : text
 }
 
 const post = <T>(path: string, body?: unknown) =>

@@ -1,3 +1,4 @@
+import i18n from "@/i18n"
 import { call, isTauri } from "@/lib/tauri"
 
 /**
@@ -22,7 +23,7 @@ async function readKey(): Promise<string> {
   if (!isTauri) {
     const key = localStorage.getItem(DEV_KEY)
     if (key) return key
-    throw new Error(`Clé de l'API absente : hors de l'application, colle le contenu de api.key dans localStorage["${DEV_KEY}"].`)
+    throw new Error(i18n.t("common.errors.keyMissing", { key: DEV_KEY }))
   }
   let lastError = ""
   for (let attempt = 0; attempt < KEY_RETRIES; attempt++) {
@@ -33,7 +34,7 @@ async function readKey(): Promise<string> {
       await sleep(KEY_RETRY_DELAY_MS)
     }
   }
-  throw new Error(lastError || "Clé de l'API introuvable.")
+  throw new Error(lastError || i18n.t("common.errors.keyNotFound"))
 }
 
 /**
