@@ -12,9 +12,37 @@ type Controller struct {
 	mu   sync.Mutex
 	Mode string
 	// CurveMode : "steep" (paliers) ou "smooth" (interpolation linéaire entre les points).
-	CurveMode      string
-	ActiveProfile  Profile
-	CurrentPWM     uintptr
+	CurveMode string
+	// HysteresisC : degrés de baisse requis avant de ralentir le ventilateur (0 = désactivée). Voir shouldApplyTarget.
+	HysteresisC int
+	// Smoothing : "fast", "normal" ou "slow" — échelle appliquée au pas de transition des profils.
+	Smoothing string
+	// TempFilterS : fenêtre en secondes de la moyenne glissante sur la température en mode Auto (0 = désactivée).
+	TempFilterS int
+	// Dernières mesures de la sonde de fond (voir sensors.go) : /status et la boucle Auto lisent ce cache
+	// au lieu d'appeler la DLL, dont chaque appel est lent et sérialisé.
+	sensTemp   uintptr
+	sensRPM    uintptr
+	sensReady  bool
+	fan2RPM    uintptr
+	fan2Probed bool
+	// Commande du second ventilateur (voir fan2.go) : mode, consigne manuelle, dernier PWM écrit, mode test actif sur l'index 1.
+	fan2Mode    string
+	fan2Percent uintptr
+	fan2PWM     uintptr
+	fan2TestOn  bool
+	// biosOverride : vrai quand le mode test a été coupé en revenant au firmware APRÈS une commande du ventilateur 2.
+	// Le firmware pilote alors les DEUX ventilateurs et la courbe du profil est ignorée (voir fan2.go).
+	biosOverride bool
+	// dll sérialise les séquences qui changent d'index de ventilateur (index 1, opération, retour à 0) : aucune autre
+	// écriture ne doit s'intercaler, sinon une consigne partirait sur le mauvais ventilateur.
+	dll sync.Mutex
+	// quit est fermé par Cleanup : la sonde ne doit plus toucher à la DLL après ShutdownWinIo.
+	quit          chan struct{}
+	ActiveProfile Profile
+	CurrentPWM    uintptr
+	// rampStarted : vrai dès la première transition (voir transitionConfig).
+	rampStarted    bool
 	targetPWM      uintptr
 	stopAuto       chan bool
 	stopTransition chan bool
@@ -24,12 +52,30 @@ type Controller struct {
 	SetFanIndex    *windows.LazyProc
 	SetFanTestMode *windows.LazyProc
 	ShutdownWinIo  *windows.LazyProc
+	// FanCounts : fonction de la DLL qui annonce le nombre de ventilateurs (voir readFanCount).
+	FanCounts *windows.LazyProc
+	// fanCount : nombre annoncé par la DLL au démarrage, ou unknownFanCount si elle ne le dit pas.
+	fanCount int
+	// TempSource : température qui pilote la courbe du ventilateur 1 (« cpu » ou « max », voir tempsource.go).
+	TempSource string
+	// gpuTempFn : lecture de la température GPU, branchée par main (0 = indisponible).
+	gpuTempFn func() int
+	// fan2Curve : courbe propre du second ventilateur (mode « curve »).
+	fan2Curve Fan2CurveConfig
+	// fanTest : test actif des ventilateurs (voir fantest.go).
+	fanTest fanTestRun
+	// stats : statistiques de session (voir stats.go). extra : capteurs supplémentaires de la DLL (voir extra.go).
+	stats *sessionStats
+	extra *extraState
 }
 
 func NewController(dll *windows.LazyDLL) *Controller {
 	return &Controller{
 		Mode:           "idle",
 		CurveMode:      CurveSteep,
+		Smoothing:      SmoothingNormal,
+		quit:           make(chan struct{}),
+		fan2Mode:       Fan2Firmware,
 		ActiveProfile:  getSystemProfile("balanced"),
 		CurrentPWM:     0,
 		targetPWM:      0,
@@ -39,6 +85,10 @@ func NewController(dll *windows.LazyDLL) *Controller {
 		SetFanPWM:      dll.NewProc("HealthyTable_SetFanPwmDuty"),
 		ReadTemp:       dll.NewProc("Thermal_Read_Cpu_Temperature"),
 		ReadRPM:        dll.NewProc("HealthyTable_FanRPM"),
+		FanCounts:      dll.NewProc("HealthyTable_FanCounts"),
+		fanCount:       unknownFanCount,
+		stats:          newSessionStats(),
+		extra:          newExtraState(dll),
 	}
 }
 
@@ -51,10 +101,23 @@ func (c *Controller) Init() {
 	}
 	CallProc("SetFanTestMode", c.SetFanTestMode, 1)
 	CallProc("SetFanIndex", c.SetFanIndex, 0)
+	c.fanCount = readFanCount(c.FanCounts)
 }
 
 func (c *Controller) Cleanup() {
 	fmt.Println("\nCleaning up...")
+
+	// Arrête la sonde avant tout : elle ne doit plus appeler la DLL pendant la restauration.
+	select {
+	case <-c.quit: // déjà fermé : Cleanup appelé deux fois ne doit pas paniquer
+	default:
+		close(c.quit)
+	}
+
+	// Rend le second ventilateur au firmware AVANT tout le reste : sans cela il resterait figé sur sa dernière consigne.
+	c.dll.Lock()
+	c.releaseFan2Locked()
+	c.dll.Unlock()
 
 	c.mu.Lock()
 	wasAuto := c.Mode == "auto"
@@ -79,12 +142,24 @@ func (c *Controller) Cleanup() {
 	fmt.Println("Done ✓")
 }
 
+// maxPWM : valeur maximale du PWM (0-255). Utilisée comme « pas » pour atteindre une cible en un seul palier.
+const maxPWM uintptr = 255
+
 // transitionConfig retourne la config de transition du profil actif
 // avec fallback sur defaultTransition si les valeurs sont invalides
 func (c *Controller) transitionConfig() (step uintptr, tick time.Duration) {
 	c.mu.Lock()
 	t := c.ActiveProfile.Transition
+	smoothing := c.Smoothing
+	// La toute première transition après le démarrage part de CurrentPWM = 0 alors que le ventilateur peut déjà
+	// être arrêté sur une machine chaude : la lisser depuis 0 le laissait à l'arrêt de longues secondes (processeur
+	// monté de 70° à 90° au démarrage avec le lissage « Doux »). On l'applique donc d'un seul pas.
+	firstRamp := !c.rampStarted
+	c.rampStarted = true
 	c.mu.Unlock()
+	if firstRamp {
+		return maxPWM, time.Duration(defaultTransition.TickMs) * time.Millisecond
+	}
 
 	step = uintptr(t.Step)
 	tick = time.Duration(t.TickMs) * time.Millisecond
@@ -95,6 +170,9 @@ func (c *Controller) transitionConfig() (step uintptr, tick time.Duration) {
 	if tick == 0 {
 		tick = time.Duration(defaultTransition.TickMs) * time.Millisecond
 	}
+	// IMPORTANT : le lissage ne s'applique qu'ici, pas à transitionBlocking (Cleanup) : à l'arrêt,
+	// le ventilateur doit revenir vite à un état sûr, quel que soit le réglage choisi.
+	step = scaleStep(step, smoothing)
 	return
 }
 
@@ -129,7 +207,7 @@ func (c *Controller) transitionTo(target uintptr) {
 
 			next := nextPWM(cur, tgt, step)
 
-			CallProc("SetFanPwmDuty", c.SetFanPWM, next)
+			c.setPWM(next)
 
 			c.mu.Lock()
 			c.CurrentPWM = next
@@ -167,7 +245,7 @@ func (c *Controller) transitionBlocking(target uintptr, t TransitionConfig) {
 
 		next := nextPWM(cur, target, step)
 
-		CallProc("SetFanPwmDuty", c.SetFanPWM, next)
+		c.setPWM(next)
 
 		c.mu.Lock()
 		c.CurrentPWM = next
@@ -221,12 +299,22 @@ func (c *Controller) StartAuto() {
 	c.mu.Unlock()
 
 	go func() {
+		// lastKey/lastChangeTemp : état propre à cette boucle pour l'hystérésis (voir shouldApplyTarget).
+		var lastKey string
+		var lastChangeTemp int
+		// recent : dernières mesures brutes, pour la moyenne glissante (voir filterTemp).
+		var recent []uintptr
 		for {
 			select {
 			case <-c.stopAuto:
 				return
 			default:
-				temp := CallProc("ReadCpuTemp", c.ReadTemp)
+				// Température du cache de la sonde : un appel direct à la DLL ferait la queue derrière tous les autres.
+				rawTemp := c.cachedTemp()
+				c.mu.Lock()
+				filterS := c.TempFilterS
+				c.mu.Unlock()
+				temp := filterTemp(&recent, rawTemp, filterS)
 
 				c.mu.Lock()
 				var target uintptr
@@ -236,11 +324,21 @@ func (c *Controller) StartAuto() {
 					target = c.ActiveProfile.GetPWM(int(temp))
 				}
 				currentTarget := c.targetPWM
+				hysteresis := c.HysteresisC
+				key := c.ActiveProfile.ID + "|" + c.CurveMode
 				c.mu.Unlock()
 
-				// Lance la transition seulement si la cible a changé
-				if target != currentTarget {
+				// Un changement de profil ou de mode de courbe repart d'une base neuve et s'applique tout de suite.
+				forced := key != lastKey
+				if forced {
+					lastKey = key
+					lastChangeTemp = int(temp)
+				}
+
+				// Lance la transition seulement si la cible a changé (et que l'hystérésis l'autorise)
+				if target != currentTarget && shouldApplyTarget(target, currentTarget, int(temp), lastChangeTemp, hysteresis, forced) {
 					c.transitionTo(target)
+					lastChangeTemp = int(temp)
 				}
 
 				time.Sleep(2 * time.Second)
@@ -281,8 +379,8 @@ func (c *Controller) SetActiveProfile(p Profile) {
 }
 
 func (c *Controller) Status() (temp, rpm, pwm, percent uintptr) {
-	temp = CallProc("ReadCpuTemp", c.ReadTemp)
-	rpm = CallProc("ReadFanRPM", c.ReadRPM, 0)
+	// Mesures issues du cache de la sonde (au plus quelques secondes de retard) : /status répond sans toucher à la DLL.
+	temp, rpm = c.cachedTempRPM()
 
 	c.mu.Lock()
 	pwm = c.CurrentPWM
