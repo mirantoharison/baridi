@@ -126,7 +126,7 @@ const time = (ts: number, locale: string) => {
 
 /** Issue d'une ligne : « ok » (accepté ou flux ouvert), « error » (refusé, injoignable ou flux perdu). */
 function outcome(status: LogEntry["status"]): "ok" | "error" {
-  if (status === "OPEN") return "ok"
+  if (status === "OPEN" || status === "REG" || status === "KEY") return "ok"
   if (status === "LOST" || status === "ERR") return "error"
   return status < 400 ? "ok" : "error"
 }

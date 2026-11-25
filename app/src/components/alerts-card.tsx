@@ -123,6 +123,14 @@ export function AlertsCard() {
           </div>
         </div>
 
+        <div className="flex items-center justify-between gap-4 rounded-none border p-3">
+          <Label htmlFor="alerts-stall" className="flex flex-col items-start gap-1">
+            <span className="font-medium">{t("config.alerts.stall")}</span>
+            <span className="font-normal text-muted-foreground">{t("config.alerts.stallHint")}</span>
+          </Label>
+          <Switch id="alerts-stall" checked={alerts.notifyFanStall} disabled={!alerts.enabled} onCheckedChange={(v) => updatePrefs("alerts", { notifyFanStall: v })} />
+        </div>
+
         <div className="space-y-3 rounded-none border p-3">
           <div className="flex items-center justify-between gap-4">
             <Label htmlFor="alerts-gpu" className="flex flex-col items-start gap-1">

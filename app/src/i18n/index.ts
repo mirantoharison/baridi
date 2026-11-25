@@ -2,9 +2,18 @@ import i18n from "i18next"
 import { initReactI18next } from "react-i18next"
 import { resources as sources } from "@/i18n/resources"
 
-export type Language = "fr" | "en"
+export type Language = "fr" | "en" | "es" | "de" | "pt" | "it"
 
-export const LANGUAGES: Language[] = ["fr", "en"]
+/** Langues proposées, dans l'ordre du sélecteur ; `name` est écrit dans sa propre langue (on le reconnaît même sans la lire). */
+export const LANGUAGES: { code: Language; name: string }[] = [
+  { code: "fr", name: "Français" },
+  { code: "en", name: "English" },
+  { code: "es", name: "Español" },
+  { code: "de", name: "Deutsch" },
+  { code: "pt", name: "Português" },
+  { code: "it", name: "Italiano" },
+]
+const isLanguage = (v: unknown): v is Language => LANGUAGES.some((l) => l.code === v)
 const STORAGE_KEY = "fancontroller:language"
 
 /**
@@ -15,24 +24,32 @@ const STORAGE_KEY = "fancontroller:language"
 function initialLanguage(): Language {
   try {
     const saved = localStorage.getItem(STORAGE_KEY)
-    if (saved === "fr" || saved === "en") return saved
+    if (isLanguage(saved)) return saved
   } catch {
     /* stockage indisponible : on retombe sur la langue du système */
   }
-  return navigator.language?.toLowerCase().startsWith("fr") ? "fr" : "en"
+  const system = navigator.language?.toLowerCase().slice(0, 2)
+  return isLanguage(system) ? system : "en"
 }
 
 i18n.use(initReactI18next).init({
-  resources: {
-    fr: { translation: sources.fr },
-    en: { translation: sources.en },
-  },
+  resources: Object.fromEntries(Object.entries(sources).map(([lang, translation]) => [lang, { translation }])),
   lng: initialLanguage(),
-  fallbackLng: "fr", // une clé manquante en anglais s'affiche en français plutôt que sous forme de clé brute
+  // Une clé manquante s'affiche dans une langue de repli plutôt que sous forme de clé brute : l'anglais pour les langues
+  // ajoutées, le français pour le reste.
+  fallbackLng: { es: ["en", "fr"], de: ["en", "fr"], pt: ["en", "fr"], it: ["en", "fr"], default: ["fr"] },
   interpolation: { escapeValue: false }, // React échappe déjà
   returnNull: false,
 })
 document.documentElement.lang = i18n.language
+
+// Le mini-widget est une autre fenêtre : quand la langue change dans la principale, l'événement « storage » l'en informe.
+window.addEventListener("storage", (e) => {
+  if (e.key === STORAGE_KEY && isLanguage(e.newValue) && e.newValue !== i18n.language) {
+    void i18n.changeLanguage(e.newValue)
+    document.documentElement.lang = e.newValue
+  }
+})
 
 /** Change de langue et la mémorise. */
 export function setLanguage(lng: Language) {

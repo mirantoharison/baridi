@@ -8,6 +8,8 @@ export interface Sample {
   temp: number
   percent: number
   rpm: number
+  /** Vitesse du second ventilateur (absente avec un seul ventilateur). */
+  rpm2?: number
   /** Mesures facultatives : absentes avec un contrôleur ancien ou sans carte NVIDIA. */
   cpuUsage?: number
   gpuTemp?: number
@@ -74,6 +76,7 @@ export function useFan() {
               temp: s.temp_c,
               percent: s.percent,
               rpm: s.rpm,
+              rpm2: s.fan2_rpm,
               cpuUsage: s.cpu?.usage_percent,
               gpuTemp: s.gpu?.temp_c,
               gpuUsage: s.gpu?.usage_percent,

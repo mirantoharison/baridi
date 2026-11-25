@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Switch } from "@/components/ui/switch"
 import { isTauri } from "@/lib/tauri"
+import { useShortcutErrors } from "@/hooks/use-shortcuts"
 import { updatePrefs, usePrefs } from "@/lib/prefs"
 
 /** Touche physique → nom d'accelerator Tauri. Les touches non listées sont refusées (Tab, Échap…). */
@@ -26,17 +27,20 @@ function toAccelerator(e: KeyboardEvent): string | null {
   return [...mods, key].join("+")
 }
 
-function ShortcutField({ id, label, value, disabled, onChange }: {
+function ShortcutField({ id, label, value, disabled, error, onChange }: {
   id: string
   label: string
   value: string
   disabled: boolean
+  /** Raison pour laquelle Windows a refusé la combinaison (absent = enregistrée). */
+  error?: string
   onChange: (accelerator: string) => void
 }) {
   const { t } = useTranslation()
   return (
     <div className="flex items-center justify-between gap-4">
       <Label htmlFor={id} className="font-normal">{label}</Label>
+      <div className="flex flex-col items-end gap-1">
       <Input
         id={id}
         readOnly
@@ -52,6 +56,8 @@ function ShortcutField({ id, label, value, disabled, onChange }: {
           if (accelerator) onChange(accelerator)
         }}
       />
+      {error && !disabled && <span className="text-destructive">{t("config.shortcuts.refused")}</span>}
+      </div>
     </div>
   )
 }
@@ -59,6 +65,7 @@ function ShortcutField({ id, label, value, disabled, onChange }: {
 /** Raccourcis clavier globaux. Préférences stockées côté interface (AppData). */
 export function ShortcutsCard() {
   const { t } = useTranslation()
+  const errors = useShortcutErrors()
   const { shortcuts } = usePrefs()
 
   return (
@@ -83,17 +90,24 @@ export function ShortcutsCard() {
           <ShortcutField
             id="shortcut-next"
             label={t("config.shortcuts.next")}
-            value={shortcuts.nextProfile}
+            value={shortcuts.nextProfile} error={errors[shortcuts.nextProfile]}
             disabled={!shortcuts.enabled}
             onChange={(a) => updatePrefs("shortcuts", { nextProfile: a })}
           />
           <ShortcutField
             id="shortcut-full"
             label={t("config.shortcuts.full")}
-            value={shortcuts.toggleFull}
+            value={shortcuts.toggleFull} error={errors[shortcuts.toggleFull]}
             disabled={!shortcuts.enabled}
             onChange={(a) => updatePrefs("shortcuts", { toggleFull: a })}
           />
+          <ShortcutField id="shortcut-widget" label={t("config.shortcuts.widget")} value={shortcuts.toggleWidget} error={errors[shortcuts.toggleWidget]} disabled={!shortcuts.enabled} onChange={(a) => updatePrefs("shortcuts", { toggleWidget: a })} />
+          <ShortcutField id="shortcut-clickthrough" label={t("config.shortcuts.clickThrough")} value={shortcuts.toggleClickThrough} error={errors[shortcuts.toggleClickThrough]} disabled={!shortcuts.enabled} onChange={(a) => updatePrefs("shortcuts", { toggleClickThrough: a })} />
+          <p className="pt-1 text-muted-foreground">{t("config.shortcuts.fixedHint")}</p>
+          <ShortcutField id="shortcut-10" label={t("config.shortcuts.speed", { percent: 10 })} value={shortcuts.speed10} error={errors[shortcuts.speed10]} disabled={!shortcuts.enabled} onChange={(a) => updatePrefs("shortcuts", { speed10: a })} />
+          <ShortcutField id="shortcut-25" label={t("config.shortcuts.speed", { percent: 25 })} value={shortcuts.speed25} error={errors[shortcuts.speed25]} disabled={!shortcuts.enabled} onChange={(a) => updatePrefs("shortcuts", { speed25: a })} />
+          <ShortcutField id="shortcut-50" label={t("config.shortcuts.speed", { percent: 50 })} value={shortcuts.speed50} error={errors[shortcuts.speed50]} disabled={!shortcuts.enabled} onChange={(a) => updatePrefs("shortcuts", { speed50: a })} />
+          <ShortcutField id="shortcut-75" label={t("config.shortcuts.speed", { percent: 75 })} value={shortcuts.speed75} error={errors[shortcuts.speed75]} disabled={!shortcuts.enabled} onChange={(a) => updatePrefs("shortcuts", { speed75: a })} />
         </div>
       </CardContent>
     </Card>

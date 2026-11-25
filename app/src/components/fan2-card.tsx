@@ -48,7 +48,24 @@ export function Fan2Card({ status, onFan2, onFan2Curve }: Props) {
   // Brouillon de la courbe : modifié librement, appliqué seulement par le bouton (chaque envoi réécrit le matériel).
   const [draftPoints, setDraftPoints] = useState<CurvePoint[]>(status.fan2_curve?.points ?? DEFAULT_FAN2_POINTS)
   const [draftSource, setDraftSource] = useState<Fan2Source>(status.fan2_curve?.source ?? "max")
-  const [isCurveOpen, setIsCurveOpen] = useState(false)
+  const applied = status.fan2_curve
+  // Le brouillon repart de la courbe appliquée quand elle change (après un « Appliquer », ou depuis un autre endroit).
+  // IMPORTANT : la dépendance est le CONTENU de la courbe, pas l'objet (le flux en renvoie un neuf chaque seconde) : sinon les
+  // modifications en cours seraient écrasées à chaque mesure.
+  const appliedKey = applied ? JSON.stringify(applied) : ""
+  useEffect(() => {
+    if (applied) {
+      setDraftPoints(applied.points)
+      setDraftSource(applied.source)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- appliedKey résume `applied`
+  }, [appliedKey])
+  // « Appliquer » n'est actif que s'il y a quelque chose à enregistrer : la courbe affichée diffère de celle appliquée.
+  const isDirty =
+    !applied ||
+    applied.source !== draftSource ||
+    applied.points.length !== draftPoints.length ||
+    applied.points.some((p, i) => p.temp !== draftPoints[i].temp || p.speed !== draftPoints[i].speed)
   const [value, setValue] = useState(status.fan2_percent || 50)
   const [pending, setPending] = useState<{ title: string; message: string; confirmLabel?: string; run: () => void } | null>(null)
   const timer = useRef<ReturnType<typeof setTimeout>>(undefined)
@@ -101,8 +118,8 @@ export function Fan2Card({ status, onFan2, onFan2Curve }: Props) {
               onClick={() => {
                 if (id === "manual") sendManual(value)
                 else if (id === "firmware") goBios()
-                // Sans courbe enregistrée, on ouvre l'éditeur au lieu d'activer un mode vide.
-                else if (id === "curve") (status.fan2_curve ? onFan2("curve") : setIsCurveOpen(true))
+                // Un clic applique tout de suite la dernière courbe enregistrée ; la toute première fois, la courbe proposée.
+                else if (id === "curve") (applied ? onFan2("curve") : onFan2Curve({ points: draftPoints, source: draftSource }))
                 else onFan2(id)
               }}
               aria-pressed={mode === id}
@@ -134,7 +151,7 @@ export function Fan2Card({ status, onFan2, onFan2Curve }: Props) {
           </div>
         )}
 
-        {(mode === "curve" || isCurveOpen) && (
+        {mode === "curve" && (
           <div className="space-y-3">
             <div className="flex items-center gap-2">
               <span className="text-muted-foreground">{t("control.fan2.basedOn")}</span>
@@ -153,13 +170,7 @@ export function Fan2Card({ status, onFan2, onFan2Curve }: Props) {
               className="h-56"
               onChange={setDraftPoints}
             />
-            <Button
-              size="sm"
-              onClick={() => {
-                onFan2Curve({ points: draftPoints, source: draftSource })
-                setIsCurveOpen(false)
-              }}
-            >
+            <Button size="sm" disabled={!isDirty} onClick={() => onFan2Curve({ points: draftPoints, source: draftSource })}>
               {t("control.fan2.applyCurve")}
             </Button>
           </div>
@@ -175,7 +186,7 @@ export function Fan2Card({ status, onFan2, onFan2Curve }: Props) {
           </div>
         )}
 
-        <p className="text-muted-foreground">{t(`control.fan2.descriptions.${isCurveOpen ? "curve" : mode}`)}</p>
+        <p className="text-muted-foreground">{t(`control.fan2.descriptions.${mode}`)}</p>
       </CardContent>
 
       {pending && (

@@ -9,6 +9,8 @@ import { ScrollArea } from "@/components/ui/scroll-area"
 import { useFan } from "@/hooks/use-fan"
 import { useThermalAlerts } from "@/hooks/use-thermal-alerts"
 import { useTrayIcon } from "@/hooks/use-tray-icon"
+import { useTrayMenu } from "@/hooks/use-tray-menu"
+import { useWidget } from "@/hooks/use-widget"
 import { useGlobalShortcuts } from "@/hooks/use-shortcuts"
 import { useNotificationsDenied } from "@/hooks/use-notifications-denied"
 import { ALL_PAGES, DEFAULT_PAGE_ID, computeBadges } from "@/lib/nav"
@@ -33,6 +35,8 @@ export default function App() {
   const s = fan.status
   useThermalAlerts(s, fan.online)
   useTrayIcon(s, fan.online)
+  useWidget()
+  useTrayMenu({ status: s, profiles: fan.profiles, selectProfile: fan.selectProfile, setAuto: fan.setAuto, setManual: fan.setManual })
   useGlobalShortcuts({
     status: s,
     profiles: fan.profiles,

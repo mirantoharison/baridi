@@ -44,11 +44,6 @@ function drawIcon(label: string, color: string): number[] {
 export function useTrayIcon(status: FanStatus | null, online: boolean) {
   const lastRef = useRef("")
 
-  // Menu de l'icône (« Afficher » / « Quitter ») : retraduit au démarrage et à chaque changement de langue.
-  useEffect(() => {
-    if (!isTauri) return
-    call("set_tray_menu", { show: i18n.t("common.tray.show"), quit: i18n.t("common.tray.quit") }).catch(() => {})
-  }, [i18n.language])
 
   const temp = status?.temp_c
   const profile = status?.profile

@@ -8,8 +8,8 @@ export interface LogEntry {
   method: string
   path: string
   body?: string
-  /** Code HTTP, ou "ERR" (réseau), "OPEN" / "LOST" (flux SSE). */
-  status: number | "ERR" | "OPEN" | "LOST"
+  /** Code HTTP, ou "ERR" (réseau), "OPEN" / "LOST" (flux SSE), "REG" / "KEY" (raccourci enregistré / pressé). */
+  status: number | "ERR" | "OPEN" | "LOST" | "REG" | "KEY"
   ms?: number
   error?: string
   /**

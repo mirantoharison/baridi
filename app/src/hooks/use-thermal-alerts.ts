@@ -7,6 +7,14 @@ import type { FanStatus } from "@/lib/api"
 
 /** Écart sous un seuil avant de le réarmer : évite le spam quand la température oscille autour de la limite. */
 const REARM_HYSTERESIS_C = 5
+/**
+ * Un ventilateur est jugé bloqué quand il reçoit au moins cette consigne (en %) mais mesure 0 RPM pendant tout ce délai.
+ * Plus bas qu'à 30 %, certains ventilateurs ne démarrent pas ; plus court, la mise en route d'un arrêt à froid (rotor qui
+ * démarre, capteur qui rattrape) déclencherait de fausses alertes.
+ */
+const STALL_MIN_PERCENT = 30
+const STALL_AFTER_MS = 15_000
+
 /** Délai de grâce avant d'annoncer une perte du contrôleur : il redémarre parfois (veille, relance du sidecar). */
 const DISCONNECT_GRACE_MS = 10_000
 
@@ -92,6 +100,35 @@ export function useThermalAlerts(status: FanStatus | null, online: boolean) {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- isSnoozed ne lit qu'une ref
   }, [gpuTemp, alerts.enabled, alerts.gpuEnabled, alerts.gpuWarnTemp, alerts.gpuCriticalTemp])
+
+  // Ventilateur bloqué : consigne d'au moins STALL_MIN_PERCENT, mais 0 RPM pendant STALL_AFTER_MS. Une alerte par ventilateur,
+  // réarmée dès que le ventilateur tourne de nouveau. Le ventilateur 2 n'est surveillé que s'il est piloté par l'application :
+  // en mode « BIOS » c'est le firmware qui décide, et un arrêt à froid y est normal.
+  const percent = status?.percent
+  const rpm = status?.rpm
+  const fan2Rpm = status?.fan2_rpm
+  const fan2Mode = status?.fan2_mode
+  const stallSince = useRef<{ fan1?: number; fan2?: number }>({})
+  const stallNotified = useRef<{ fan1: boolean; fan2: boolean }>({ fan1: false, fan2: false })
+  useEffect(() => {
+    if (!alerts.enabled || !alerts.notifyFanStall || percent === undefined || rpm === undefined) return
+    const now = Date.now()
+    const check = (key: "fan1" | "fan2", isStalled: boolean, title: string) => {
+      if (!isStalled) {
+        stallSince.current[key] = undefined
+        stallNotified.current[key] = false
+        return
+      }
+      stallSince.current[key] ??= now
+      if (!stallNotified.current[key] && now - (stallSince.current[key] as number) >= STALL_AFTER_MS) {
+        stallNotified.current[key] = true
+        if (!isSnoozed()) notify(title, i18n.t("common.notify.stallBody", { percent }))
+      }
+    }
+    check("fan1", percent >= STALL_MIN_PERCENT && rpm === 0, i18n.t("common.notify.stallTitle1"))
+    check("fan2", fan2Rpm !== undefined && fan2Mode !== undefined && fan2Mode !== "firmware" && percent >= STALL_MIN_PERCENT && fan2Rpm === 0, i18n.t("common.notify.stallTitle2"))
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- isSnoozed ne lit qu'une ref
+  }, [percent, rpm, fan2Rpm, fan2Mode, alerts.enabled, alerts.notifyFanStall])
 
   // Perte du contrôleur : annoncée une seule fois après le délai de grâce, puis la reprise est signalée.
   const wasLostRef = useRef(false)
