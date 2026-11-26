@@ -50,9 +50,9 @@ export function ServiceCard() {
       </CardHeader>
       <CardContent className="space-y-3">
         <div className="flex items-center justify-between gap-4 rounded-none border p-3">
-          <Label htmlFor="service" className="flex flex-col items-start gap-1">
+          <Label htmlFor="service" className="flex flex-col items-start gap-1.5">
             <span className="font-medium">{t("config.service.label")}</span>
-            <span className="font-normal text-muted-foreground">
+            <span className="font-normal leading-6 text-muted-foreground">
               {!isTauri
                 ? t("config.onlyInstalled")
                 : busy

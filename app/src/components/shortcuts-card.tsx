@@ -81,9 +81,9 @@ export function ShortcutsCard() {
 
         <div className="space-y-3 rounded-none border p-3">
           <div className="flex items-center justify-between gap-4">
-            <Label htmlFor="shortcuts-enabled" className="flex flex-col items-start gap-1">
+            <Label htmlFor="shortcuts-enabled" className="flex flex-col items-start gap-1.5">
               <span className="font-medium">{t("config.shortcuts.enable")}</span>
-              <span className="font-normal text-muted-foreground">{t("config.shortcuts.enableHint")}</span>
+              <span className="font-normal leading-6 text-muted-foreground">{t("config.shortcuts.enableHint")}</span>
             </Label>
             <Switch id="shortcuts-enabled" checked={shortcuts.enabled} onCheckedChange={(v) => updatePrefs("shortcuts", { enabled: v })} />
           </div>

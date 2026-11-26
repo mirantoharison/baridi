@@ -85,9 +85,9 @@ export function AlertsCard() {
 
         <div className="space-y-3 rounded-none border p-3">
           <div className="flex items-center justify-between gap-4">
-            <Label htmlFor="alerts-enabled" className="flex flex-col items-start gap-1">
+            <Label htmlFor="alerts-enabled" className="flex flex-col items-start gap-1.5">
               <span className="font-medium">{t("config.alerts.enable")}</span>
-              <span className="font-normal text-muted-foreground">{t("config.alerts.enableHint")}</span>
+              <span className="font-normal leading-6 text-muted-foreground">{t("config.alerts.enableHint")}</span>
             </Label>
             <Switch id="alerts-enabled" checked={alerts.enabled} onCheckedChange={(v) => updatePrefs("alerts", { enabled: v })} />
           </div>
@@ -110,9 +110,9 @@ export function AlertsCard() {
             onChange={(v) => updatePrefs("alerts", { criticalTemp: v })}
           />
           <div className="flex items-center justify-between gap-4">
-            <Label htmlFor="alerts-disconnect" className="flex flex-col items-start gap-1">
+            <Label htmlFor="alerts-disconnect" className="flex flex-col items-start gap-1.5">
               <span className="font-normal">{t("config.alerts.disconnect")}</span>
-              <span className="font-normal text-muted-foreground">{t("config.alerts.disconnectHint")}</span>
+              <span className="font-normal leading-6 text-muted-foreground">{t("config.alerts.disconnectHint")}</span>
             </Label>
             <Switch
               id="alerts-disconnect"
@@ -124,18 +124,18 @@ export function AlertsCard() {
         </div>
 
         <div className="flex items-center justify-between gap-4 rounded-none border p-3">
-          <Label htmlFor="alerts-stall" className="flex flex-col items-start gap-1">
+          <Label htmlFor="alerts-stall" className="flex flex-col items-start gap-1.5">
             <span className="font-medium">{t("config.alerts.stall")}</span>
-            <span className="font-normal text-muted-foreground">{t("config.alerts.stallHint")}</span>
+            <span className="font-normal leading-6 text-muted-foreground">{t("config.alerts.stallHint")}</span>
           </Label>
           <Switch id="alerts-stall" checked={alerts.notifyFanStall} disabled={!alerts.enabled} onCheckedChange={(v) => updatePrefs("alerts", { notifyFanStall: v })} />
         </div>
 
         <div className="space-y-3 rounded-none border p-3">
           <div className="flex items-center justify-between gap-4">
-            <Label htmlFor="alerts-gpu" className="flex flex-col items-start gap-1">
+            <Label htmlFor="alerts-gpu" className="flex flex-col items-start gap-1.5">
               <span className="font-medium">{t("config.alerts.gpu")}</span>
-              <span className="font-normal text-muted-foreground">{t("config.alerts.gpuHint")}</span>
+              <span className="font-normal leading-6 text-muted-foreground">{t("config.alerts.gpuHint")}</span>
             </Label>
             <Switch id="alerts-gpu" checked={alerts.gpuEnabled} disabled={!alerts.enabled} onCheckedChange={(v) => updatePrefs("alerts", { gpuEnabled: v })} />
           </div>

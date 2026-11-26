@@ -26,7 +26,7 @@ export function WidgetCard() {
         <div className="flex items-center justify-between gap-4 rounded-none border p-3">
           <Label htmlFor="widget-enabled" className="flex flex-col items-start gap-1">
             <span className="font-medium">{t("widget.enable")}</span>
-            <span className="font-normal leading-relaxed text-muted-foreground">{isTauri ? t("widget.hint") : t("config.onlyInstalled")}</span>
+            <span className="font-normal leading-6 text-muted-foreground">{isTauri ? t("widget.hint") : t("config.onlyInstalled")}</span>
           </Label>
           <Switch id="widget-enabled" checked={widget.enabled} disabled={!isTauri} onCheckedChange={(v) => updatePrefs("widget", { enabled: v })} />
         </div>
@@ -48,7 +48,7 @@ export function WidgetCard() {
         <div className="flex items-center justify-between gap-4 rounded-none border p-3">
           <Label htmlFor="widget-clickthrough" className="flex flex-col items-start gap-1">
             <span className="font-medium">{t("widget.clickThrough")}</span>
-            <span className="font-normal leading-relaxed text-muted-foreground">{t("widget.clickThroughHint")}</span>
+            <span className="font-normal leading-6 text-muted-foreground">{t("widget.clickThroughHint")}</span>
           </Label>
           <Switch id="widget-clickthrough" checked={widget.clickThrough} disabled={!isTauri} onCheckedChange={(v) => updatePrefs("widget", { clickThrough: v })} />
         </div>
