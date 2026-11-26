@@ -28,7 +28,7 @@ For a discreet everyday fan, try 2 to 3 °C of hysteresis, a 4 to 6 second filte
 
 In steep mode, the curve works in steps: each point sets the speed as long as the temperature stays below its value, then the speed jumps to the next step as soon as that threshold is crossed. It is very readable and predictable: a given temperature always corresponds to a clearly identifiable speed on the curve, which makes fine tuning easier. In return, you may hear a change of speed at each threshold crossed, especially when the temperature oscillates around one of them.
 
-In smooth mode, the speed is linearly interpolated between the two neighboring points: each extra degree translates into a small adjustment, with no abrupt step. Below the first point the speed of that point is kept; above the last point the last point's speed applies. Speed changes are more discreet and the fan stays steadier, which is often more pleasant on a machine whose temperature fluctuates a lot.
+In smooth mode, the speed follows a rounded curve that passes through every point, without going beyond the speeds of the two neighboring points: each extra degree translates into a small adjustment, with no abrupt step. Below the first point the speed of that point is kept; above the last point the last point's speed applies. Speed changes are more discreet and the fan stays steadier, which is often more pleasant on a machine whose temperature fluctuates a lot.
 
 In both cases the controller then reaches the target in small steps. If in doubt, start with smooth mode: it is the most comfortable to the ear. Pick steep mode if you want each step to be exactly the one you drew.`,
   },

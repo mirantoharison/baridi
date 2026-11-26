@@ -2,12 +2,12 @@ import { useEffect, useRef, useState } from "react"
 import { Gauge, Hand, Power, Sparkles } from "lucide-react"
 import { useTranslation } from "react-i18next"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Slider } from "@/components/ui/slider"
+import { ModeSwitch, Readout, SpeedControl } from "@/components/fan-controls"
+import { Choice } from "@/components/choice"
 import { ConfirmDialog } from "@/components/confirm-dialog"
-import type { FanMode } from "@/lib/api"
+import { ProfileIcon } from "@/lib/profile-icons"
+import type { FanMode, FanProfile } from "@/lib/api"
 import { manualSpeedWarning, stopWarning } from "@/lib/guards"
-import { cn } from "@/lib/utils"
 
 const MODES: { id: FanMode; icon: typeof Sparkles }[] = [
   { id: "auto", icon: Sparkles },
@@ -15,16 +15,22 @@ const MODES: { id: FanMode; icon: typeof Sparkles }[] = [
   { id: "idle", icon: Power },
 ]
 
-const PRESETS = [25, 50, 75, 100]
+const PRESETS = [10, 25, 50, 75, 100]
 
 interface Props {
   mode: FanMode
   percent: number
+  /** Vitesse mesurée du ventilateur 1, en tours par minute (affichée pendant le réglage). */
+  rpm?: number
   /** Température CPU courante : sert aux garde-fous (voir lib/guards.ts). Absente = aucune confirmation. */
   temp?: number
   onAuto: () => void
   onManual: (percent: number) => void
   onStop: () => void
+  /** Profils proposés en mode Auto, profil actif et choix : la courbe du profil décide de la vitesse. */
+  profiles: FanProfile[]
+  activeProfileId?: string
+  onSelectProfile: (id: string) => void
 }
 
 /** Action en attente de confirmation : `revert` remet l'affichage dans l'état réel si l'utilisateur annule. */
@@ -36,7 +42,7 @@ interface Pending {
 }
 
 /** Choix du mode ; le curseur manuel n'apparaît qu'en mode Manuel (envoi différé pour ne pas inonder le contrôleur). */
-export function ControlCard({ mode, percent, temp, onAuto, onManual, onStop }: Props) {
+export function ControlCard({ mode, percent, temp, rpm, onAuto, onManual, onStop, profiles, activeProfileId, onSelectProfile }: Props) {
   const { t } = useTranslation()
   const [value, setValue] = useState(percent)
   const [pending, setPending] = useState<Pending | null>(null)
@@ -87,41 +93,29 @@ export function ControlCard({ mode, percent, temp, onAuto, onManual, onStop }: P
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
-        <div className="grid grid-cols-3 gap-1 rounded-none bg-muted p-1">
-          {MODES.map(({ id, icon: Icon }) => (
-            <button
-              key={id}
-              onClick={() => select(id)}
-              className={cn(
-                "flex items-center justify-center gap-1.5 rounded-none py-2 text-xs font-medium transition-colors",
-                mode === id ? "bg-primary text-primary-foreground shadow" : "text-muted-foreground hover:text-foreground",
-              )}
-            >
-              <Icon className="size-4" />
-              {t(`control.card.modes.${id}`)}
-            </button>
-          ))}
+        <div className="grid grid-cols-3 gap-2">
+          <Readout label={t("control.card.temp")} value={temp ?? "--"} unit="°C" />
+          <Readout label={t("control.card.rpm")} value={rpm ?? "--"} unit="RPM" />
+          <Readout label={t("control.card.setpoint")} value={percent} unit="%" />
         </div>
 
-        {mode === "manual" ? (
+        <ModeSwitch modes={MODES.map((m) => ({ ...m, label: t(`control.card.modes.${m.id}`) }))} current={mode} onSelect={select} />
+
+        {mode === "manual" && <SpeedControl value={value} presets={PRESETS} onChange={commit} />}
+        {mode === "idle" && <p className="text-muted-foreground">{t("control.card.idleText")}</p>}
+        {mode === "auto" && (
           <div className="space-y-3">
-            <div className="flex items-baseline justify-between">
-              <span className="text-muted-foreground">{t("control.card.manualSpeed")}</span>
-              <span className="font-mono text-base font-semibold tabular-nums">{value}%</span>
-            </div>
-            <Slider value={[value]} min={0} max={100} step={5} onValueChange={(v) => commit(Array.isArray(v) ? v[0] : v)} />
-            <div className="grid grid-cols-4 gap-2">
-              {PRESETS.map((p) => (
-                <Button key={p} size="sm" variant="outline" onClick={() => commit(p)}>
-                  {p}%
-                </Button>
-              ))}
+            <p className="text-muted-foreground">{t("control.card.autoText")}</p>
+            <div className="flex items-center justify-between gap-4">
+              <span className="font-medium">{t("control.tab.activeProfile")}</span>
+              <Choice
+                className="w-64"
+                value={activeProfileId ?? ""}
+                options={profiles.map((p) => ({ value: p.id, label: p.source === "user" ? `${p.name} (${t("control.tab.custom")})` : p.name, icon: <ProfileIcon name={p.icon} /> }))}
+                onChange={onSelectProfile}
+              />
             </div>
           </div>
-        ) : (
-          <p className="text-muted-foreground">
-            {mode === "auto" ? t("control.card.autoText") : t("control.card.idleText")}
-          </p>
         )}
       </CardContent>
 

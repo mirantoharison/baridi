@@ -7,6 +7,7 @@ import { CpuCard, GpuCard, MemoryBatteryCard, SensorsCard } from "@/components/h
 import { MachineCard, SessionCard } from "@/components/session-cards"
 import { HistoryChart } from "@/components/history-chart"
 import { TempGauge } from "@/components/temp-gauge"
+import { fan2CurveTarget } from "@/lib/fan2"
 import type { Fan } from "@/lib/nav"
 import { cn } from "@/lib/utils"
 
@@ -56,6 +57,8 @@ export function InfoTab({ fan }: { fan: Fan }) {
   const s = fan.status
   const fan2Rpm = s?.fan2_rpm
   const hasFan2 = fan2Rpm !== undefined
+  // Mode « courbe » du ventilateur 2 : consigne calculée avec la même formule que le contrôleur (voir lib/fan2.ts).
+  const fan2CurvePercent = fan2CurveTarget(s)
 
   return (
     <div className="flex flex-1 flex-col gap-4">
@@ -91,9 +94,9 @@ export function InfoTab({ fan }: { fan: Fan }) {
             // En mode « firmware » la consigne vient de la carte mère : aucune puissance à afficher, et la roue tourne à
             // vitesse fixe tant qu'il tourne. En « suivre » il reçoit la consigne du ventilateur 1, en « manuel » la sienne.
             rotorPercent={
-              s?.fan2_mode === "manual" ? (s.fan2_percent ?? 0) : s?.fan2_mode === "follow" ? s.percent : fan2Rpm > 0 ? UNKNOWN_POWER_ROTOR_PERCENT : 0
+              s?.fan2_mode === "manual" ? (s.fan2_percent ?? 0) : s?.fan2_mode === "follow" ? s.percent : fan2CurvePercent ?? (fan2Rpm > 0 ? UNKNOWN_POWER_ROTOR_PERCENT : 0)
             }
-            power={s?.fan2_mode === "manual" ? `${s.fan2_percent ?? 0}%` : s?.fan2_mode === "follow" ? `${s.percent}%` : null}
+            power={s?.fan2_mode === "manual" ? `${s.fan2_percent ?? 0}%` : s?.fan2_mode === "follow" ? `${s.percent}%` : fan2CurvePercent !== null ? `${fan2CurvePercent}%` : null}
             powerLabel={t("info.fan.requested")}
           />
         )}

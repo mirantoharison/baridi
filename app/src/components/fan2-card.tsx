@@ -3,13 +3,13 @@ import { AlertTriangle, Cpu, Hand, Spline, Wind } from "lucide-react"
 import { Trans, useTranslation } from "react-i18next"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Slider } from "@/components/ui/slider"
+import { ModeSwitch, Readout, SpeedControl } from "@/components/fan-controls"
 import { ConfirmDialog } from "@/components/confirm-dialog"
-import { CurveEditor } from "@/components/curve-editor"
+import { ZoneEditor } from "@/components/zone-editor"
 import { Choice } from "@/components/choice"
 import { FAN2_MIN_MANUAL_PERCENT, type CurvePoint, type Fan2Curve, type Fan2Mode, type Fan2Source, type FanStatus } from "@/lib/api"
+import { fan2CurveTarget, fan2SourceTemp } from "@/lib/fan2"
 import { manualSpeedWarning } from "@/lib/guards"
-import { cn } from "@/lib/utils"
 
 const MODES: { id: Fan2Mode; icon: typeof Wind }[] = [
   { id: "firmware", icon: Cpu },
@@ -25,6 +25,9 @@ const DEFAULT_FAN2_POINTS: CurvePoint[] = [
   { temp: 70, speed: 70 },
   { temp: 85, speed: 100 },
 ]
+
+/** Vitesse minimale du dernier palier : même valeur que fan2CurveMinTopSpeed côté Go (sinon la courbe est refusée). */
+const FAN2_CURVE_MIN_TOP_SPEED = 60
 
 const SOURCES: Fan2Source[] = ["cpu", "gpu", "max"]
 
@@ -111,45 +114,24 @@ export function Fan2Card({ status, onFan2, onFan2Curve }: Props) {
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
-        <div className="grid grid-cols-4 gap-1 rounded-none bg-muted p-1">
-          {MODES.map(({ id, icon: Icon }) => (
-            <button
-              key={id}
-              onClick={() => {
-                if (id === "manual") sendManual(value)
-                else if (id === "firmware") goBios()
-                // Un clic applique tout de suite la dernière courbe enregistrée ; la toute première fois, la courbe proposée.
-                else if (id === "curve") (applied ? onFan2("curve") : onFan2Curve({ points: draftPoints, source: draftSource }))
-                else onFan2(id)
-              }}
-              aria-pressed={mode === id}
-              className={cn(
-                "flex items-center justify-center gap-1.5 rounded-none py-2 text-xs font-medium transition-colors",
-                mode === id ? "bg-primary text-primary-foreground shadow" : "text-muted-foreground hover:text-foreground",
-              )}
-            >
-              <Icon className="size-4" />
-              {t(`control.fan2.modes.${id}`)}
-            </button>
-          ))}
+        <div className="grid grid-cols-2 gap-2">
+          <Readout label={t("control.fan2.rpm")} value={status.fan2_rpm ?? "--"} unit="RPM" />
+          <Readout label={t("control.fan2.requested")} value={mode === "manual" ? `${status.fan2_percent ?? value}%` : mode === "follow" ? `${status.percent}%` : mode === "curve" ? `${fan2CurveTarget(status) ?? "—"}%` : "—"} />
         </div>
 
-        {mode === "manual" && (
-          <div className="space-y-3">
-            <div className="flex items-baseline justify-between">
-              <span className="text-muted-foreground">{t("control.fan2.manualSpeed")}</span>
-              <span className="font-mono text-base font-semibold tabular-nums">{value}%</span>
-            </div>
-            <Slider value={[value]} min={FAN2_MIN_MANUAL_PERCENT} max={100} step={5} onValueChange={(v) => commit(Array.isArray(v) ? v[0] : v)} />
-            <div className="grid grid-cols-3 gap-2">
-              {[50, 75, 100].map((p) => (
-                <Button key={p} size="sm" variant="outline" onClick={() => commit(p)}>
-                  {p}%
-                </Button>
-              ))}
-            </div>
-          </div>
-        )}
+        <ModeSwitch
+          modes={MODES.map((m) => ({ ...m, label: t(`control.fan2.modes.${m.id}`) }))}
+          current={mode}
+          onSelect={(id) => {
+            if (id === "manual") sendManual(value)
+            else if (id === "firmware") goBios()
+            // Un clic applique tout de suite la dernière courbe enregistrée ; la toute première fois, la courbe proposée.
+            else if (id === "curve") applied ? onFan2("curve") : onFan2Curve({ points: draftPoints, source: draftSource })
+            else onFan2(id)
+          }}
+        />
+
+        {mode === "manual" && <SpeedControl value={value} min={FAN2_MIN_MANUAL_PERCENT} presets={[50, 75, 100]} onChange={commit} />}
 
         {mode === "curve" && (
           <div className="space-y-3">
@@ -162,14 +144,7 @@ export function Fan2Card({ status, onFan2, onFan2Curve }: Props) {
                 onChange={(v) => setDraftSource(v as Fan2Source)}
               />
             </div>
-            <CurveEditor
-              points={draftPoints}
-              temp={status.temp_c}
-              mode="smooth"
-              editable
-              className="h-56"
-              onChange={setDraftPoints}
-            />
+            <ZoneEditor points={draftPoints} temp={fan2SourceTemp(status, draftSource)} onChange={setDraftPoints} increasing minTopSpeed={FAN2_CURVE_MIN_TOP_SPEED} />
             <Button size="sm" disabled={!isDirty} onClick={() => onFan2Curve({ points: draftPoints, source: draftSource })}>
               {t("control.fan2.applyCurve")}
             </Button>

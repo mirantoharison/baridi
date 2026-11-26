@@ -9,15 +9,27 @@ export const control = {
       stopTitle: "Couper le pilotage automatique ?",
     },
     card: {
-      title: "Pilotage",
+      title: "Ventilateur 1",
       modes: { auto: "Auto", manual: "Manuel", idle: "Arrêt" },
+      temp: "Température",
+      rpm: "Ventilateur 1",
+      setpoint: "Consigne",
       manualSpeed: "Vitesse manuelle",
       autoText:
         "Le mode Auto est actif : toutes les 2 secondes, le contrôleur relève la température du processeur, détermine la vitesse prévue par la courbe du profil actif, puis y amène progressivement le ventilateur, par petites étapes pour éviter les changements de régime brutaux. Tu n'as rien à régler ici : change simplement de profil actif ci-dessous si tu veux un comportement plus silencieux ou plus rafraîchissant. Choisis Manuel si tu veux fixer toi-même la vitesse, par exemple pour un test de bruit ou pour forcer un refroidissement maximal avant une tâche lourde ; le curseur apparaîtra alors à cet endroit.",
       idleText:
         "Le pilotage automatique est coupé : le contrôleur ne lit plus la température pour ajuster la vitesse, et le ventilateur reste sur la dernière vitesse appliquée jusqu'à ton prochain choix, sans que le comportement d'origine de la machine reprenne la main. Garde un œil sur la température dans l'onglet Info, car rien ne la fera redescendre tant que tu n'as pas relancé le mode Auto ou fixé une vitesse en mode Manuel. Si tu comptes laisser l'ordinateur sans surveillance, repasse en Auto : c'est le mode le plus sûr, puisque la vitesse s'adapte alors à la température à chaque instant.",
     },
+    zones: { title: "Courbe de refroidissement simplifiée", from: "Seuil", temp: "Température", speed: "Vitesse", fan: "Ventilateur", add: "Ajouter un palier", remove: "Retirer ce palier", removeLast: "Supprimer un palier", handleHint: "Glisse pour changer le seuil ; double-clic pour retirer le palier", hint: "Glisse les poignées de la barre pour les seuils et tire les colonnes pour les vitesses." },
     tab: {
+      copyName: "{{name}} (copie)",
+      profilesHint: "Pour créer ou modifier un profil, va dans la page Profils.",
+      editHint: "Les modifications ne sont appliquées qu'une fois enregistrées.",
+      editSystemHint: "Ce profil est fourni par l'application et ne peut pas être modifié : tes changements sont enregistrés dans une copie.",
+      systemProfile: "Profil système",
+      reset: "Annuler",
+      save: "Enregistrer",
+      saveCopy: "Enregistrer une copie",
       summary:
         "Cet onglet sert à <b>piloter le ventilateur en direct</b>. Tu y choisis le <b>mode de fonctionnement</b> (Auto, Manuel ou Arrêt), tu fixes la vitesse à la main quand tu veux reprendre la main, et tu sélectionnes le <b>profil actif</b> dont la courbe décide de la vitesse en mode Auto. La courbe affichée en bas montre exactement ce que le contrôleur applique, avec un repère vertical qui suit la température du processeur en temps réel : tu vois donc à tout moment où tu te situes sur la courbe et quelle vitesse en découle. Toutes les actions de cet onglet sont envoyées immédiatement au contrôleur et consignées dans l'onglet Logs, ce qui permet de vérifier a posteriori ce qui a été demandé et à quelle heure.",
       details:
@@ -28,6 +40,8 @@ export const control = {
       noProfile: "Aucun profil sélectionné.",
     },
     fan2: {
+      rpm: "Vitesse mesurée",
+      requested: "Consigne envoyée",
       title: "Ventilateur 2",
       modes: { firmware: "BIOS", follow: "Suivre le 1", manual: "Manuel", curve: "Courbe" },
       descriptions: {
@@ -74,15 +88,27 @@ export const control = {
       stopTitle: "Stop automatic control?",
     },
     card: {
-      title: "Control",
+      title: "Fan 1",
       modes: { auto: "Auto", manual: "Manual", idle: "Off" },
+      temp: "Temperature",
+      rpm: "Fan 1",
+      setpoint: "Setpoint",
       manualSpeed: "Manual speed",
       autoText:
         "Auto mode is active: every 2 seconds, the controller reads the processor temperature, determines the speed set by the active profile's curve, then brings the fan there gradually, in small steps to avoid abrupt changes in speed. There is nothing to set here: just change the active profile below if you want quieter or cooler behavior. Choose Manual if you want to set the speed yourself, for example for a noise test or to force maximum cooling before a heavy task; the slider will then appear here.",
       idleText:
         "Automatic control is off: the controller no longer reads the temperature to adjust the speed, and the fan stays at the last speed applied until your next choice, without the machine's original behavior taking over. Keep an eye on the temperature in the Info tab, because nothing will bring it down until you restart Auto mode or set a speed in Manual mode. If you plan to leave the computer unattended, switch back to Auto: it is the safest mode, since the speed then adapts to the temperature at every moment.",
     },
+    zones: { title: "Simplified cooling curve", from: "Threshold", temp: "Temperature", speed: "Speed", fan: "Fan", add: "Add a step", remove: "Remove this step", removeLast: "Remove a step", handleHint: "Drag to change the threshold; double-click to remove the step", hint: "Drag the bar handles for thresholds and pull the columns for speeds." },
     tab: {
+      copyName: "{{name}} (copy)",
+      profilesHint: "To create or edit a profile, go to the Profiles page.",
+      editHint: "Changes only apply once saved.",
+      editSystemHint: "This profile is provided by the application and cannot be modified: your changes are saved in a copy.",
+      systemProfile: "System profile",
+      reset: "Cancel",
+      save: "Save",
+      saveCopy: "Save a copy",
       summary:
         "This tab is used to <b>control the fan live</b>. You choose the <b>operating mode</b> (Auto, Manual or Off), set the speed by hand when you want to take over, and select the <b>active profile</b> whose curve decides the speed in Auto mode. The curve shown at the bottom shows exactly what the controller applies, with a vertical marker that follows the processor temperature in real time: you can see at any moment where you stand on the curve and what speed results. Every action in this tab is sent to the controller immediately and recorded in the Logs tab, so you can check afterwards what was requested and when.",
       details:
@@ -93,6 +119,8 @@ export const control = {
       noProfile: "No profile selected.",
     },
     fan2: {
+      rpm: "Measured speed",
+      requested: "Setpoint sent",
       title: "Fan 2",
       modes: { firmware: "BIOS", follow: "Follow 1", manual: "Manual", curve: "Curve" },
       descriptions: {

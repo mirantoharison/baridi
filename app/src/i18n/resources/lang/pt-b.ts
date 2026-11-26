@@ -9,7 +9,7 @@ export const ptB = {
       stopTitle: "Parar o controlo automático?",
     },
     card: {
-      title: "Controlo",
+      title: "Ventoinha 1",
       modes: { auto: "Auto", manual: "Manual", idle: "Parado" },
       manualSpeed: "Velocidade manual",
       autoText:

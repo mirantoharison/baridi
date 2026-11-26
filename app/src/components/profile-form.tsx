@@ -6,8 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger } from "@/components/ui/select"
-import type { CurveMode } from "@/lib/curve-path"
-import { CurveEditor } from "@/components/curve-editor"
+import { ZoneEditor } from "@/components/zone-editor"
 import { PROFILE_ICONS, ProfileIcon } from "@/lib/profile-icons"
 import type { CurvePoint, FanProfile } from "@/lib/api"
 import { cn } from "@/lib/utils"
@@ -20,7 +19,6 @@ const DEFAULT_POINTS: CurvePoint[] = [
 
 interface Props {
   profiles: FanProfile[]
-  curveMode?: CurveMode
   /** Profil à modifier ; absent = création. */
   initial?: FanProfile
   /** Profil à dupliquer : préremplit le formulaire en création. */
@@ -31,16 +29,13 @@ interface Props {
 
 const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, Number.isFinite(v) ? v : lo))
 
-export function ProfileForm({ profiles, curveMode, initial, base, onSave, onCancel }: Props) {
+export function ProfileForm({ profiles, initial, base, onSave, onCancel }: Props) {
   const { t } = useTranslation()
   const seed = initial ?? base
   const [name, setName] = useState(initial?.name ?? (base ? `${base.name} ${t("profiles.copySuffix")}` : ""))
   const [description, setDescription] = useState(seed?.description ?? "")
   const [icon, setIcon] = useState(seed?.icon ?? "Gauge")
   const [points, setPoints] = useState<CurvePoint[]>(seed ? seed.points.map((p) => ({ ...p })) : DEFAULT_POINTS)
-
-  const setPoint = (i: number, patch: Partial<CurvePoint>) =>
-    setPoints((pts) => pts.map((p, j) => (j === i ? { ...p, ...patch } : p)))
 
   const addPoint = () =>
     setPoints((pts) => {
@@ -138,42 +133,10 @@ export function ProfileForm({ profiles, curveMode, initial, base, onSave, onCanc
               <Plus /> {t("profiles.form.step")}
             </Button>
           </div>
-          <CurveEditor points={points} editable onChange={setPoints} mode={curveMode} />
+          <ZoneEditor points={points} onChange={setPoints} />
           <p className="text-muted-foreground">
             {t("profiles.form.help")}
           </p>
-          <div className="grid grid-cols-[1fr_1fr_auto] items-center gap-2">
-            <span className="text-muted-foreground">{t("profiles.form.upTo")}</span>
-            <span className="text-muted-foreground">{t("profiles.form.speed")}</span>
-            <span />
-            {points.map((p, i) => (
-              <div key={i} className="contents">
-                <Input
-                  type="number"
-                  value={p.temp}
-                  min={0}
-                  max={100}
-                  onChange={(e) => setPoint(i, { temp: clamp(e.target.valueAsNumber, 0, 100) })}
-                />
-                <Input
-                  type="number"
-                  value={p.speed}
-                  min={0}
-                  max={100}
-                  onChange={(e) => setPoint(i, { speed: clamp(e.target.valueAsNumber, 0, 100) })}
-                />
-                <Button
-                  size="icon"
-                  variant="ghost"
-                  disabled={points.length <= 1}
-                  onClick={() => setPoints((pts) => pts.filter((_, j) => j !== i))}
-                  aria-label={t("profiles.form.removeStep")}
-                >
-                  <X />
-                </Button>
-              </div>
-            ))}
-          </div>
         </div>
       </CardContent>
     </Card>

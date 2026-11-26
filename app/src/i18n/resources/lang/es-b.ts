@@ -9,7 +9,7 @@ export const esB = {
       stopTitle: "¿Detener el control automático?",
     },
     card: {
-      title: "Control",
+      title: "Ventilador 1",
       modes: { auto: "Auto", manual: "Manual", idle: "Apagado" },
       manualSpeed: "Velocidad manual",
       autoText:

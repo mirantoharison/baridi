@@ -9,7 +9,7 @@ export const itB = {
       stopTitle: "Fermare il controllo automatico?",
     },
     card: {
-      title: "Controllo",
+      title: "Ventola 1",
       modes: { auto: "Auto", manual: "Manuale", idle: "Arresto" },
       manualSpeed: "Velocità manuale",
       autoText:

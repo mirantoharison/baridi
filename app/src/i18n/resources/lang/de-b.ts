@@ -9,7 +9,7 @@ export const deB = {
       stopTitle: "Automatische Steuerung stoppen?",
     },
     card: {
-      title: "Steuerung",
+      title: "Lüfter 1",
       modes: { auto: "Auto", manual: "Manuell", idle: "Aus" },
       manualSpeed: "Manuelle Drehzahl",
       autoText:

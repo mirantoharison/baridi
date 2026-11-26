@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { CurveEditor } from "@/components/curve-editor"
+import { ZoneEditor } from "@/components/zone-editor"
 import { InfoNote } from "@/components/info-note"
 import { MiniCurve } from "@/components/mini-curve"
 import { ProfileForm } from "@/components/profile-form"
@@ -51,7 +51,6 @@ export function ProfilesTab({ profiles, status, onActivate, onSave, onDelete }: 
     <ProfileForm
       key={`${view}-${selected?.id}`}
       profiles={profiles}
-      curveMode={status?.curve_mode}
       initial={view === "edit" ? selected : undefined}
       base={view === "duplicate" ? selected : undefined}
       onCancel={() => setView("view")}
@@ -156,12 +155,7 @@ export function ProfilesTab({ profiles, status, onActivate, onSave, onDelete }: 
                 </div>
               </CardHeader>
               <CardContent className="flex flex-1 flex-col">
-                <CurveEditor
-                  points={selected.points}
-                  temp={status?.temp_c}
-                  mode={status?.curve_mode}
-                  className="min-h-60 flex-1"
-                />
+                <ZoneEditor points={selected.points} temp={status?.temp_c} mode={status?.curve_mode} fill />
               </CardContent>
             </Card>
           ))}
