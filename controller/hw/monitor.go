@@ -62,6 +62,7 @@ func (m *Monitor) sample() {
 		}
 		g.PowerState = state
 		g.Mode = graphicsMode()
+		g.Integrated = Integrated()
 		m.snap.GPU = &g
 	}
 	if ram, ok := readRAM(); ok {

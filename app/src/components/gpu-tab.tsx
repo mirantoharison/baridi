@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react"
-import { Cpu, Moon } from "lucide-react"
+import { Cpu, Monitor, Moon } from "lucide-react"
 import { useTranslation } from "react-i18next"
 import { GpuCard } from "@/components/hardware-cards"
 import { LineChart, type ChartSeries } from "@/components/line-chart"
@@ -59,14 +59,38 @@ export function GpuTab({ fan }: { fan: Fan }) {
   return (
     <div className="flex flex-1 flex-col gap-4">
       {gpu.asleep ? (
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-xs">
-              <Moon className="size-4 text-muted-foreground" /> {gpu.name || t("gpu.title")}
-            </CardTitle>
-            <CardDescription>{t("gpu.asleep", { state: gpu.power_state ?? "D3" })}</CardDescription>
-          </CardHeader>
-        </Card>
+        <>
+          {gpu.integrated && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-xs">
+                  <Monitor className="size-4 text-muted-foreground" /> {gpu.integrated.name}
+                </CardTitle>
+                <CardDescription>{t("gpu.integratedActive")}</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-1">
+                <div className="flex items-baseline justify-between gap-3">
+                  <span className="text-muted-foreground">{t("gpu.integratedRole")}</span>
+                  <span>{t("gpu.integratedRoleValue")}</span>
+                </div>
+                {gpu.integrated.driver && (
+                  <div className="flex items-baseline justify-between gap-3">
+                    <span className="text-muted-foreground">{t("gpu.integratedDriver")}</span>
+                    <span className="font-mono tabular-nums">{gpu.integrated.driver}</span>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          )}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-xs">
+                <Moon className="size-4 text-muted-foreground" /> {gpu.name || t("gpu.title")}
+              </CardTitle>
+              <CardDescription>{t("gpu.asleep", { state: gpu.power_state ?? "D3" })}</CardDescription>
+            </CardHeader>
+          </Card>
+        </>
       ) : (
         <>
           <GpuCard gpu={gpu} />

@@ -33,6 +33,8 @@ type GPU struct {
 	Asleep     bool   `json:"asleep,omitempty"`
 	// Mode : « hybrid », « discrete » ou « integrated », déduit des cartes présentes (voir graphicsMode).
 	Mode string `json:"mode,omitempty"`
+	// Integrated : la puce graphique intégrée, quand la machine est hybride (elle affiche l'écran pendant que la NVIDIA dort).
+	Integrated *IntegratedGPU `json:"integrated,omitempty"`
 	// Processes : programmes qui utilisent la carte en ce moment (au plus quelques-uns), quand le pilote les indique.
 	Processes []string `json:"processes,omitempty"`
 }

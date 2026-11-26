@@ -109,8 +109,22 @@ func GPUPowerState() string {
 // NVIDIA désactivée). C'est une déduction, pas une lecture du réglage ASUS. Le résultat est mis en cache : l'ensemble
 // des cartes ne change pas en cours d'exécution (un changement de mode exige un redémarrage).
 var graphicsModeCache struct {
-	done bool
-	mode string
+	done       bool
+	mode       string
+	integrated *IntegratedGPU
+}
+
+// IntegratedGPU est la puce graphique intégrée au processeur (Intel, AMD), qui prend le relais quand la carte NVIDIA dort.
+// Seuls son nom et sa version de pilote sont connus : la mesurer demanderait des compteurs lourds, sans intérêt ici.
+type IntegratedGPU struct {
+	Name   string `json:"name"`
+	Driver string `json:"driver,omitempty"`
+}
+
+// Integrated renvoie la puce graphique intégrée présente, ou nil (carte NVIDIA seule, ou lecture impossible).
+func Integrated() *IntegratedGPU {
+	graphicsMode()
+	return graphicsModeCache.integrated
 }
 
 func graphicsMode() string {
@@ -153,6 +167,13 @@ func graphicsMode() string {
 				nvidia = true
 			} else {
 				other = true
+				// Le nom propre et la version du pilote sont dans la clé de classe que l'instance référence (« Driver »).
+				if drv := readString(registry.LOCAL_MACHINE, root+`\`+model+`\`+inst, "Driver"); drv != "" && graphicsModeCache.integrated == nil {
+					classKey := `SYSTEM\CurrentControlSet\Control\Class\` + drv
+					if name := readString(registry.LOCAL_MACHINE, classKey, "DriverDesc"); name != "" {
+						graphicsModeCache.integrated = &IntegratedGPU{Name: name, Driver: readString(registry.LOCAL_MACHINE, classKey, "DriverVersion")}
+					}
+				}
 			}
 		}
 	}

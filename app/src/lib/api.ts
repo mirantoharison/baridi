@@ -93,6 +93,8 @@ export interface GpuStatus {
   asleep?: boolean
   /** Mode graphique déduit des cartes présentes : hybride (Optimus), dédié (NVIDIA seule) ou intégré. */
   mode?: "hybrid" | "discrete" | "integrated"
+  /** Puce graphique intégrée (machine hybride) : elle affiche l'écran quand la carte NVIDIA dort. */
+  integrated?: { name: string; driver?: string }
   /** Programmes qui utilisent la carte, quand le pilote les indique. */
   processes?: string[]
 }
