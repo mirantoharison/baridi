@@ -2,6 +2,7 @@ use std::io::Write;
 use std::net::TcpStream;
 use std::os::windows::process::CommandExt;
 use std::process::{Child, Command};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Mutex;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
@@ -15,6 +16,16 @@ const CREATE_NO_WINDOW: u32 = 0x0800_0000;
 /// Nom de la tâche planifiée qui lance l'interface à l'ouverture de session.
 const TASK_NAME: &str = "BaridiFancontroller";
 /// Argument passé par la tâche planifiée : démarrer réduit dans la zone de notification.
+/// Réglage « réduire dans la zone de notification » : réduire la fenêtre la masque aussi de la barre des tâches.
+/// IMPORTANT : lu à chaque événement de fenêtre, donc un atomique ; l'interface le pousse au démarrage et à chaque changement.
+static MINIMIZE_TO_TRAY: AtomicBool = AtomicBool::new(true);
+
+/// Active ou coupe le masquage de la fenêtre à la réduction (voir MINIMIZE_TO_TRAY).
+#[tauri::command]
+fn set_minimize_to_tray(enabled: bool) {
+    MINIMIZE_TO_TRAY.store(enabled, Ordering::Relaxed);
+}
+
 const MINIMIZED_ARG: &str = "--minimized";
 
 /// Sidecar Go qui pilote réellement les ventilateurs.
@@ -501,12 +512,22 @@ pub fn run() {
         // de dupliquer en Rust la logique « profil suivant » qui vit déjà dans le hook useFan.
         .plugin(tauri_plugin_global_shortcut::Builder::new().build())
         .manage(Session(session))
-        .invoke_handler(tauri::generate_handler![session_id, service_status, service_set, autostart_status, autostart_set, open_config_dir, api_key, set_tray, set_tray_menu, set_widget_visible, set_widget_click_through, save_text_file, reveal_file])
+        .invoke_handler(tauri::generate_handler![session_id, service_status, service_set, autostart_status, autostart_set, open_config_dir, api_key, set_tray, set_tray_menu, set_widget_visible, set_widget_click_through, save_text_file, reveal_file, set_minimize_to_tray])
         // Croix de la fenêtre et Alt+F4 passent tous deux par CloseRequested : on masque au lieu de fermer.
         .on_window_event(|window, event| {
-            if let WindowEvent::CloseRequested { api, .. } = event {
-                api.prevent_close();
-                let _ = window.hide();
+            match event {
+                WindowEvent::CloseRequested { api, .. } => {
+                    api.prevent_close();
+                    let _ = window.hide();
+                }
+                // Windows n'a pas d'événement « réduite » : la réduction se voit à un Resized après lequel la fenêtre est minimisée.
+                // Masquer la fenêtre la retire de la barre des tâches ; show_main (icône de la zone de notification) la rétablit.
+                WindowEvent::Resized(_) if window.label() == "main" && MINIMIZE_TO_TRAY.load(Ordering::Relaxed) => {
+                    if window.is_minimized().unwrap_or(false) {
+                        let _ = window.hide();
+                    }
+                }
+                _ => {}
             }
         })
         .setup(|app| {

@@ -110,7 +110,7 @@ interface Props {
 /** Réglages de l'application et du contrôleur, en une page de lignes groupées par section (style Paramètres Windows). */
 export function SettingsTab({ curveMode, onCurveMode, status, onTuning, onTempSource }: Props) {
   const { t } = useTranslation()
-  const { widget } = usePrefs()
+  const { widget, app } = usePrefs()
   const hysteresisC = status?.hysteresis_c ?? 0
   const filterS = status?.temp_filter_s ?? 0
   const smoothing = status?.smoothing ?? "normal"
@@ -124,6 +124,12 @@ export function SettingsTab({ curveMode, onCurveMode, status, onTuning, onTempSo
         </Setting>
         <Setting title={t("settings.appearance.language")}>
           <LanguageToggle />
+        </Setting>
+      </Section>
+
+      <Section title={t("settings.window.title")}>
+        <Setting title={t("settings.window.minimize")} description={t("settings.window.minimizeHint")}>
+          <Switch checked={app.minimizeToTray} disabled={!isTauri} onCheckedChange={(v) => updatePrefs("app", { minimizeToTray: v })} />
         </Setting>
       </Section>
 

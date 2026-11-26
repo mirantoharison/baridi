@@ -114,6 +114,7 @@ export async function applyBackup(b: Backup, fan: Fan): Promise<ApplyResult> {
   updatePrefs("alerts", pickKnown(DEFAULT_PREFS.alerts, b.prefs.alerts))
   updatePrefs("shortcuts", pickKnown(DEFAULT_PREFS.shortcuts, b.prefs.shortcuts))
   updatePrefs("widget", pickKnown(DEFAULT_PREFS.widget, b.prefs.widget))
+  updatePrefs("app", pickKnown(DEFAULT_PREFS.app, b.prefs.app))
 
   const c = b.controller
   if (c.curve_mode === "steep" || c.curve_mode === "smooth") await attempt("curve_mode", () => fan.setCurveMode(c.curve_mode))

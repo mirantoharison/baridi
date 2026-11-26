@@ -46,13 +46,21 @@ export interface WidgetPrefs {
   clickThrough: boolean
 }
 
+/** Comportement de la fenêtre principale. */
+export interface AppPrefs {
+  /** Réduire la fenêtre la retire de la barre des tâches : elle ne reste que dans la zone de notification. */
+  minimizeToTray: boolean
+}
+
 export interface Prefs {
+  app: AppPrefs
   alerts: AlertPrefs
   shortcuts: ShortcutPrefs
   widget: WidgetPrefs
 }
 
 export const DEFAULT_PREFS: Prefs = {
+  app: { minimizeToTray: true },
   alerts: { enabled: true, warnTemp: 70, criticalTemp: 80, notifyDisconnect: true, notifyFanStall: true, gpuEnabled: true, gpuWarnTemp: 80, gpuCriticalTemp: 87, snoozeUntil: 0 },
   shortcuts: { enabled: false, nextProfile: "Ctrl+Alt+P", toggleFull: "Ctrl+Alt+F", toggleWidget: "Ctrl+Shift+F5", toggleClickThrough: "Ctrl+Shift+F6", speed10: "Ctrl+Shift+F1", speed25: "Ctrl+Shift+F2", speed50: "Ctrl+Shift+F3", speed75: "Ctrl+Shift+F4" },
   widget: { enabled: false, opacity: 55, clickThrough: false },
@@ -86,6 +94,7 @@ function withDefaults(raw: Partial<Prefs> | null | undefined): Prefs {
     alerts: { ...DEFAULT_PREFS.alerts, ...raw?.alerts },
     shortcuts: migrateSpeedShortcuts({ ...DEFAULT_PREFS.shortcuts, ...raw?.shortcuts }),
     widget: { ...DEFAULT_PREFS.widget, ...raw?.widget },
+    app: { ...DEFAULT_PREFS.app, ...raw?.app },
   }
 }
 
