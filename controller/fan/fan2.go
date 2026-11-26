@@ -198,6 +198,14 @@ func (c *Controller) SetFan2(mode string, percent uintptr) error {
 		return fmt.Errorf("unknown fan2 mode %q", mode)
 	}
 
+	// IMPORTANT : la température se lit AVANT de prendre c.dll. Si la sonde n'a pas encore rendu sa première mesure (le
+	// mode « courbe » est restauré au démarrage, juste après le lancement de la sonde), cachedTemp() la déclenche et la
+	// sonde prend elle-même c.dll : la prendre ici d'abord bloquerait le contrôleur pour toujours (verrou non réentrant).
+	var curveTemp uintptr
+	if mode == Fan2Curve {
+		curveTemp = c.cachedTemp()
+	}
+
 	c.dll.Lock()
 	defer c.dll.Unlock()
 	if mode == Fan2Firmware {
@@ -214,7 +222,7 @@ func (c *Controller) SetFan2(mode string, percent uintptr) error {
 		return nil
 	}
 	if mode == Fan2Curve {
-		c.writeFan2Locked(c.fan2CurvePWM(c.cachedTemp()))
+		c.writeFan2Locked(c.fan2CurvePWM(curveTemp))
 		return nil
 	}
 	// Mode « suivre » : on prend le plus HAUT de la consigne actuelle et de la cible, jamais l'un des deux seul.

@@ -37,26 +37,74 @@ func (p Profile) GetPWM(temp int) uintptr {
 	return PercentToPWM(uintptr(p.Points[len(p.Points)-1].Speed))
 }
 
-// GetPWMSmooth calcule la valeur PWM avec interpolation linéaire (mode smooth).
-// IMPORTANT : en dessous du premier point on garde sa vitesse, au-dessus du dernier on garde la sienne
-// (sinon une température basse retomberait sur la vitesse du dernier point, soit 100 %).
-func (p Profile) GetPWMSmooth(temp int) uintptr {
-	pts := p.Points
-	if len(pts) == 0 {
-		return PercentToPWM(0)
+// monotoneTangents calcule la pente de la courbe en chaque point (interpolation cubique monotone de Fritsch–Butland).
+// IMPORTANT : une pente nulle là où la courbe change de sens (ou reste plate d'un côté) empêche tout dépassement : la
+// vitesse ne descend jamais sous le point le plus bas ni ne monte au-dessus du plus haut entre deux points, ce qu'un
+// spline cubique ordinaire ferait (jusqu'à demander plus de 100 % ou moins de 0 %).
+func monotoneTangents(pts []CurvePoint) []float64 {
+	n := len(pts)
+	m := make([]float64, n)
+	if n < 2 {
+		return m
 	}
-	if temp <= pts[0].Temp {
-		return PercentToPWM(uintptr(pts[0].Speed))
-	}
-	for i := 0; i < len(pts)-1; i++ {
-		p1, p2 := pts[i], pts[i+1]
-		if temp >= p1.Temp && temp <= p2.Temp && p2.Temp > p1.Temp {
-			ratio := float64(temp-p1.Temp) / float64(p2.Temp-p1.Temp)
-			speed := float64(p1.Speed) + ratio*(float64(p2.Speed)-float64(p1.Speed))
-			return PercentToPWM(uintptr(speed + 0.5))
+	d := make([]float64, n-1) // pente de chaque segment
+	h := make([]float64, n-1) // largeur de chaque segment, en degrés
+	for k := 0; k < n-1; k++ {
+		h[k] = float64(pts[k+1].Temp - pts[k].Temp)
+		if h[k] > 0 {
+			d[k] = float64(pts[k+1].Speed-pts[k].Speed) / h[k]
 		}
 	}
-	return PercentToPWM(uintptr(pts[len(pts)-1].Speed))
+	m[0], m[n-1] = d[0], d[n-2]
+	for k := 1; k < n-1; k++ {
+		if d[k-1]*d[k] <= 0 {
+			continue // extremum ou palier : pente nulle
+		}
+		w1, w2 := 2*h[k]+h[k-1], h[k]+2*h[k-1]
+		m[k] = (w1 + w2) / (w1/d[k-1] + w2/d[k])
+	}
+	return m
+}
+
+// smoothSpeed renvoie la vitesse (en %) de la courbe lissée à une température donnée. Hors de l'étendue des points, on
+// garde la vitesse du premier ou du dernier (sinon une température basse retomberait sur celle du dernier point).
+func smoothSpeed(pts []CurvePoint, temp float64) float64 {
+	n := len(pts)
+	if n == 0 {
+		return 0
+	}
+	if temp <= float64(pts[0].Temp) {
+		return float64(pts[0].Speed)
+	}
+	if temp >= float64(pts[n-1].Temp) {
+		return float64(pts[n-1].Speed)
+	}
+	m := monotoneTangents(pts)
+	for i := 0; i < n-1; i++ {
+		x0, x1 := float64(pts[i].Temp), float64(pts[i+1].Temp)
+		if temp < x0 || temp > x1 || x1 <= x0 {
+			continue
+		}
+		h := x1 - x0
+		t := (temp - x0) / h
+		t2, t3 := t*t, t*t*t
+		y0, y1 := float64(pts[i].Speed), float64(pts[i+1].Speed)
+		return (2*t3-3*t2+1)*y0 + (t3-2*t2+t)*h*m[i] + (-2*t3+3*t2)*y1 + (t3-t2)*h*m[i+1]
+	}
+	return float64(pts[n-1].Speed)
+}
+
+// GetPWMSmooth calcule la valeur PWM le long d'une courbe lissée (mode smooth) : interpolation cubique monotone entre
+// les points, donc une courbe arrondie et sans dépassement. L'interface trace exactement la même courbe (curve-path.ts).
+func (p Profile) GetPWMSmooth(temp int) uintptr {
+	v := smoothSpeed(p.Points, float64(temp)) + 0.5
+	if v < 0 {
+		v = 0
+	}
+	if v > 100 {
+		v = 100
+	}
+	return PercentToPWM(uintptr(v))
 }
 
 // SystemProfiles remplace l'ancien map — profils non modifiables
